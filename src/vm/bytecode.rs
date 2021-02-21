@@ -10,6 +10,10 @@ pub type ByteCode = u8;
 #[repr(u8)]
 pub enum OpCode {
   Constant,
+  Add,
+  Subtract,
+  Multiply,
+  Divide,
   Negate,
   Return,
 }
@@ -23,6 +27,10 @@ pub struct Chunk {
 }
 
 impl Chunk {
+  pub fn write_op(&mut self, op: OpCode, line: u32) {
+    self.write(op as u8, line);
+  }
+
   pub fn write(&mut self, instr: ByteCode, line: u32) {
     self.code.push(instr);
     self.lines.push(line);

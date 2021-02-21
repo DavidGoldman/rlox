@@ -27,6 +27,22 @@ pub fn disassemble_instruction(
       output.push_str(constant_instruction("OP_CONSTANT", chunk, offset).as_str());
       return offset + 2;
     }
+    instr if instr == OpCode::Add as ByteCode => {
+      output.push_str("OP_ADD\n");
+      return offset + 1;
+    }
+    instr if instr == OpCode::Subtract as ByteCode => {
+      output.push_str("OP_SUBTRACT\n");
+      return offset + 1;
+    }
+    instr if instr == OpCode::Multiply as ByteCode => {
+      output.push_str("OP_MULTIPLY\n");
+      return offset + 1;
+    }
+    instr if instr == OpCode::Divide as ByteCode => {
+      output.push_str("OP_DIVIDE\n");
+      return offset + 1;
+    }
     instr if instr == OpCode::Negate as ByteCode => {
       output.push_str("OP_NEGATE\n");
       return offset + 1;

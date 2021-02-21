@@ -39,6 +39,30 @@ impl<'a> Vm<'a> {
           let constant = self.read_constant().ok_or(VmError::RuntimeError)?.clone();
           self.stack.push(constant);
         },
+        instr if instr == OpCode::Add as ByteCode => {
+          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let result = a.add(&b).ok_or(VmError::RuntimeError)?;
+          self.stack.push(result);
+        },
+        instr if instr == OpCode::Subtract as ByteCode => {
+          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let result = a.subtract(&b).ok_or(VmError::RuntimeError)?;
+          self.stack.push(result);
+        },
+        instr if instr == OpCode::Multiply as ByteCode => {
+          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let result = a.multiply(&b).ok_or(VmError::RuntimeError)?;
+          self.stack.push(result);
+        },
+        instr if instr == OpCode::Divide as ByteCode => {
+          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let result = a.divide(&b).ok_or(VmError::RuntimeError)?;
+          self.stack.push(result);
+        },
         instr if instr == OpCode::Negate as ByteCode => {
           let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let negated = value.negate().ok_or(VmError::RuntimeError)?;
