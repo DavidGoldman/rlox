@@ -20,6 +20,7 @@ pub enum Value {
 #[derive(Debug, Default)]
 pub struct Chunk {
   code: Vec<ByteCode>,
+  // FIXME: this representation is wasteful, see Chapter 14, challenge 1.
   lines: Vec<u32>,
   constants: Vec<Value>,
 }
