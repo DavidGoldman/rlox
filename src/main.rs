@@ -1,7 +1,6 @@
 mod vm;
 
 use vm::bytecode::{Chunk, OpCode, Value};
-use vm::disassembler::disassemble_chunk;
 use vm::vm::Vm;
 
 fn main() {
@@ -10,7 +9,6 @@ fn main() {
     chunk.write(OpCode::Constant as u8, 123);
     chunk.write(offset, 123);
     chunk.write(OpCode::Return as u8, 123);
-    print!("{}", disassemble_chunk(&chunk, "test chunk"));
 
     let mut vm = Vm::new(&chunk);
     let res = vm.run();
