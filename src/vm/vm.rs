@@ -27,7 +27,7 @@ impl<'a> Vm<'a> {
 
   pub fn run(&mut self) -> Result<(), VmError> {
     loop {
-      let instr = *self.read_byte().ok_or(VmError::RuntimeError)?;
+      let instr = self.read_byte().ok_or(VmError::RuntimeError)?;
 
       if TRACE_VM {
         let mut output = String::new();
@@ -81,14 +81,14 @@ impl<'a> Vm<'a> {
     }
   }
 
-  fn read_byte(&mut self) -> Option<&ByteCode> {
+  fn read_byte(&mut self) -> Option<ByteCode> {
     let index = self.ip;
     self.ip += 1;
-    return self.chunk.get_bytecode(index);
+    return self.chunk.get_bytecode(index).copied();
   }
 
   fn read_constant(&mut self) -> Option<&Value> {
-    let constant_idx = *self.read_byte()?;
+    let constant_idx = self.read_byte()?;
     return self.chunk.get_constant(constant_idx);
   }
 
