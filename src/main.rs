@@ -1,31 +1,66 @@
+mod syntax;
 mod vm;
 
-use vm::bytecode::{Chunk, OpCode};
-use vm::value::Value;
-use vm::vm::Vm;
+use std::{env, io, process};
 
-fn main() {
-    let mut chunk = Chunk::default();
-    let mut constant = chunk.add_constant(Value::Number(1.2));
-    chunk.write_op(OpCode::Constant, 123);
-    chunk.write(constant, 123);
+use io::{Write, stdout};
+use process::exit;
+use syntax::token::TokenType;
+use syntax::scanner::Scanner;
 
-    constant = chunk.add_constant(Value::Number(3.4));
-    chunk.write_op(OpCode::Constant, 123);
-    chunk.write(constant, 123);
+fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
+  let args: Vec<String> = env::args().collect();
+  match args.len() {
+    1 => repl(),
+    2 => run_file(&args[1]),
+    _ => {
+      eprintln!("Usage: rlox [path]\n");
+      exit(64);
+    }
+  }
+}
 
-    chunk.write_op(OpCode::Add, 123);
+fn interpret(source: &str) {
+  let mut scanner = Scanner::new(source);
+  loop {
+    match scanner.scan_token() {
+      Ok(token) => {
+        println!("{:?}", token);
+        if *token.get_type() == TokenType::Eof {
+          break;
+        }
+      },
+      Err(error) => {
+        println!("{:?}", error);
+      },
+    }
+  }
+}
 
-    constant = chunk.add_constant(Value::Number(5.6));
-    chunk.write_op(OpCode::Constant, 123);
-    chunk.write(constant, 123);
+fn run_file(file_path: &str) -> Result<(), Box<dyn std::error::Error + 'static>> {
+  let file_contents = std::fs::read_to_string(file_path)?;
+  interpret(&file_contents);
+  Ok(())
+}
 
-    chunk.write_op(OpCode::Divide, 123);
+fn repl() -> Result<(), Box<dyn std::error::Error + 'static>> {
+  let mut input = String::new();
+  print_prompt();
 
-    chunk.write_op(OpCode::Negate, 123);
-    chunk.write_op(OpCode::Return, 123);
+  while let Ok(_) = io::stdin().read_line(&mut input) {
+    match input.trim().as_ref() {
+      "quit" => break,
+      _ => {
+        interpret(&input);
+        input.clear();
+        print_prompt();
+      }
+    }
+  }
+  Ok(())
+}
 
-    let mut vm = Vm::new(&chunk);
-    let res = vm.run();
-    println!("{:?}", res);
+fn print_prompt() {
+  print!("> ");
+  let _ = stdout().flush();
 }
