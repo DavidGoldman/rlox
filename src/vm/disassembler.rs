@@ -32,15 +32,17 @@ pub fn disassemble_instruction(
   }
 
   fn constant_instruction(name: &str, chunk: &Chunk, offset: Offset) -> String {
-    // FIXME: This access is unsafe.
-    let constant_idx = chunk[offset + 1];
-    match chunk.get_constant(constant_idx) {
-      Some(val) => {
-        format!("{} {:?}\n", name, val)
+    if let Some(constant_idx) = chunk.get_bytecode(offset + 1) {
+      match chunk.get_constant(*constant_idx) {
+        Some(val) => {
+          format!("{} {:?}\n", name, val)
+        }
+        None => {
+          format!("{} <invalid constant offset {}>\n", name, constant_idx)
+        }
       }
-      None => {
-        format!("{} <invalid offset {}>\n", name, constant_idx)
-      }
+    } else {
+      format!("{} <invalid bytecode offset {}>\n", name, offset + 1)
     }
   }
 }

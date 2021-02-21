@@ -2,6 +2,7 @@ use std::{convert::TryInto, ops::Index, usize};
 
 pub type Offset = usize;
 
+/// `OpCode` or data.
 pub type ByteCode = u8;
 
 #[derive(Debug, Clone, Copy)]
@@ -39,6 +40,10 @@ impl Chunk {
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {
     self.constants.get(offset as usize)
+  }
+
+  pub fn get_bytecode(&self, offset: usize) -> Option<&ByteCode> {
+    self.code.get(offset)
   }
 }
 
