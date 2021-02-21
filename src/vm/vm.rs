@@ -72,7 +72,7 @@ impl<'a> Vm<'a> {
           let negated = value.negate().ok_or(VmError::RuntimeError)?;
           self.stack.push(negated);
         },
-         OpCode::Return => {
+        OpCode::Return => {
           let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
           println!("{:?}", value);
           return Result::Ok(());

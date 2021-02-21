@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use super::bytecode::{ByteCode, Chunk, Offset, OpCode};
 
 pub fn disassemble_chunk(chunk: &Chunk, name: &str) -> String {
@@ -20,41 +22,20 @@ pub fn disassemble_instruction(
     output.push_str(format!("{:4} ", chunk.get_line(offset)).as_str());
   }
 
-  // Work around the type differences via the suggestion here:
-  // https://stackoverflow.com/a/28029667
-  match instr {
-    instr if instr == OpCode::Constant as ByteCode => {
-      output.push_str(constant_instruction("OP_CONSTANT", chunk, offset).as_str());
-      return offset + 2;
+  if let Ok(opcode) = OpCode::try_from(instr) {
+    match opcode {
+      OpCode::Constant => {
+        output.push_str(constant_instruction("Constant", chunk, offset).as_str());
+        return offset + 2;
+      }
+      val => {
+        output.push_str(format!("{:?}\n", val).as_str());
+        return offset + 1;
+      }
     }
-    instr if instr == OpCode::Add as ByteCode => {
-      output.push_str("OP_ADD\n");
-      return offset + 1;
-    }
-    instr if instr == OpCode::Subtract as ByteCode => {
-      output.push_str("OP_SUBTRACT\n");
-      return offset + 1;
-    }
-    instr if instr == OpCode::Multiply as ByteCode => {
-      output.push_str("OP_MULTIPLY\n");
-      return offset + 1;
-    }
-    instr if instr == OpCode::Divide as ByteCode => {
-      output.push_str("OP_DIVIDE\n");
-      return offset + 1;
-    }
-    instr if instr == OpCode::Negate as ByteCode => {
-      output.push_str("OP_NEGATE\n");
-      return offset + 1;
-    }
-    instr if instr == OpCode::Return as ByteCode => {
-      output.push_str("OP_RETURN\n");
-      return offset + 1;
-    }
-    _ => {
-      output.push_str(format!("<unknown opcode {}>\n", instr).as_str());
-      return offset + 1;
-    }
+  } else {
+    output.push_str(format!("<unknown opcode {}>\n", instr).as_str());
+    return offset + 1;
   }
 
   fn constant_instruction(name: &str, chunk: &Chunk, offset: Offset) -> String {
