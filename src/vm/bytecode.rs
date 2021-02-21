@@ -20,12 +20,14 @@ pub enum Value {
 #[derive(Debug, Default)]
 pub struct Chunk {
   code: Vec<ByteCode>,
+  lines: Vec<u32>,
   constants: Vec<Value>,
 }
 
 impl Chunk {
-  pub fn write(&mut self, instr: ByteCode) {
+  pub fn write(&mut self, instr: ByteCode, line: u32) {
     self.code.push(instr);
+    self.lines.push(line);
   }
 
   pub fn len(&self) -> usize {
@@ -44,6 +46,10 @@ impl Chunk {
 
   pub fn get_bytecode(&self, offset: usize) -> Option<&ByteCode> {
     self.code.get(offset)
+  }
+
+  pub fn get_line(&self, offset: usize) -> u32 {
+    *self.lines.get(offset).unwrap_or(&0)
   }
 }
 
