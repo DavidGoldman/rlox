@@ -209,36 +209,30 @@ impl<'a> Scanner<'a> {
 
   fn skip_whitespace_and_comments(&mut self) {
     loop {
-      if let Some(cur_byte) = self.current_byte() {
-        match cur_byte {
-          b' ' | b'\r' | b'\t' => {
-            self.advance();
-          },
-          b'\n' => {
-            self.line += 1;
-            self.advance();
-          },
-          b'/' => {
-            if self.peek_next_byte() == Some(b'/') {
-              self.advance();
-              // A comment goes until the end of the line or Eof.
-              loop {
-                match self.current_byte() {
-                  Some(b'\n') => { break; },
-                  Some(_) => { self.advance(); },
-                  None => { break; }
-                }
-              }
-            } else {
-              return;
-            }
-          },
-          _ => {
+      match self.current_byte().unwrap_or(0) {
+        b' ' | b'\r' | b'\t' => { self.advance(); },
+        b'\n' => {
+          self.line += 1;
+          self.advance();
+        },
+        b'/' => {
+          let next_byte = self.peek_next_byte();
+          if next_byte != Some(b'/') {
             return;
-          },
-        }
-      } else {
-        return;
+          }
+          self.advance();
+          // A comment goes until the end of the line or Eof.
+          loop {
+            match self.current_byte() {
+              Some(b'\n') => { break; },
+              Some(_) => { self.advance(); },
+              None => { break; }
+            }
+          }
+        },
+        _ => {
+          return;
+        },
       }
     }
   }
