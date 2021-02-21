@@ -1,6 +1,7 @@
 mod vm;
 
-use vm::bytecode::{Chunk, OpCode, Value};
+use vm::bytecode::{Chunk, OpCode};
+use vm::value::Value;
 use vm::vm::Vm;
 
 fn main() {
@@ -8,6 +9,7 @@ fn main() {
     let offset = chunk.add_constant(Value::Number(1.2));
     chunk.write(OpCode::Constant as u8, 123);
     chunk.write(offset, 123);
+    chunk.write(OpCode::Negate as u8, 123);
     chunk.write(OpCode::Return as u8, 123);
 
     let mut vm = Vm::new(&chunk);

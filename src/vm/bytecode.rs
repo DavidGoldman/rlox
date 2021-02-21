@@ -1,4 +1,5 @@
 use std::{convert::TryInto, ops::Index, usize};
+use super::value::Value;
 
 pub type Offset = usize;
 
@@ -9,12 +10,8 @@ pub type ByteCode = u8;
 #[repr(u8)]
 pub enum OpCode {
   Constant,
+  Negate,
   Return,
-}
-
-#[derive(Debug, Clone)]
-pub enum Value {
-  Number(f64),
 }
 
 #[derive(Debug, Default)]

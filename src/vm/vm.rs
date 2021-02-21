@@ -1,4 +1,4 @@
-use super::{bytecode::{ByteCode, Chunk, OpCode, Value}, disassembler::disassemble_instruction};
+use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instruction, value::Value};
 
 #[derive(Debug)]
 pub enum VmError {
@@ -35,14 +35,19 @@ impl<'a> Vm<'a> {
       }
 
       match instr {
+        instr if instr == OpCode::Constant as ByteCode => {
+          let constant = self.read_constant().ok_or(VmError::RuntimeError)?.clone();
+          self.stack.push(constant);
+        },
+        instr if instr == OpCode::Negate as ByteCode => {
+          let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let negated = value.negate().ok_or(VmError::RuntimeError)?;
+          self.stack.push(negated);
+        },
         instr if instr == OpCode::Return as ByteCode => {
           let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
           println!("{:?}", value);
           return Result::Ok(());
-        },
-        instr if instr == OpCode::Constant as ByteCode => {
-          let constant = self.read_constant().ok_or(VmError::RuntimeError)?.clone();
-          self.stack.push(constant);
         },
         _ => {
           return Result::Err(VmError::RuntimeError);

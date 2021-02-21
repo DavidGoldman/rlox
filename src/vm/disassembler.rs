@@ -23,13 +23,17 @@ pub fn disassemble_instruction(
   // Work around the type differences via the suggestion here:
   // https://stackoverflow.com/a/28029667
   match instr {
-    instr if instr == OpCode::Return as ByteCode => {
-      output.push_str("OP_RETURN\n");
-      return offset + 1;
-    }
     instr if instr == OpCode::Constant as ByteCode => {
       output.push_str(constant_instruction("OP_CONSTANT", chunk, offset).as_str());
       return offset + 2;
+    }
+    instr if instr == OpCode::Negate as ByteCode => {
+      output.push_str("OP_NEGATE\n");
+      return offset + 1;
+    }
+    instr if instr == OpCode::Return as ByteCode => {
+      output.push_str("OP_RETURN\n");
+      return offset + 1;
     }
     _ => {
       output.push_str(format!("<unknown opcode {}>\n", instr).as_str());
