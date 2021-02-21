@@ -1,4 +1,4 @@
-use std::{convert::TryInto, ops::Index, usize};
+use std::{convert::TryFrom, ops::Index, usize};
 use super::value::Value;
 
 pub type Offset = usize;
@@ -16,6 +16,27 @@ pub enum OpCode {
   Divide,
   Negate,
   Return,
+}
+
+impl TryFrom<ByteCode> for OpCode {
+  type Error = ();
+
+  // See https://stackoverflow.com/a/57578431, using this seems to have the same
+  // performance for release builds as the manual switch we previously had in
+  // multiple places.
+  fn try_from(v: ByteCode) -> Result<Self, Self::Error> {
+    use OpCode::*;
+    match v {
+      x if x == Constant as ByteCode => Ok(Constant),
+      x if x == Add as ByteCode => Ok(Add),
+      x if x == Subtract as ByteCode => Ok(Subtract),
+      x if x == Multiply as ByteCode => Ok(Multiply),
+      x if x == Divide as ByteCode => Ok(Divide),
+      x if x == Negate as ByteCode => Ok(Negate),
+      x if x == Return as ByteCode => Ok(Return),
+      _ => Err(()),
+    }
+  }
 }
 
 #[derive(Debug, Default)]
@@ -44,7 +65,7 @@ impl Chunk {
     let constant_idx = self.constants.len();
     self.constants.push(value);
     // FIXME: This is unsafe, can panic at runtime if there's too many constants.
-    constant_idx.try_into().unwrap()
+    ByteCode::try_from(constant_idx).unwrap()
   }
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {

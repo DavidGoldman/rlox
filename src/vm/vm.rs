@@ -1,3 +1,5 @@
+use std::convert::TryFrom;
+
 use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instruction, value::Value};
 
 #[derive(Debug)]
@@ -34,48 +36,47 @@ impl<'a> Vm<'a> {
         println!("{}", output.as_str());
       }
 
-      match instr {
-        instr if instr == OpCode::Constant as ByteCode => {
+      let opcode = OpCode::try_from(instr).or(Result::Err(VmError::RuntimeError))?;
+
+      match opcode {
+        OpCode::Constant => {
           let constant = self.read_constant().ok_or(VmError::RuntimeError)?.clone();
           self.stack.push(constant);
         },
-        instr if instr == OpCode::Add as ByteCode => {
+        OpCode::Add => {
           let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let result = a.add(&b).ok_or(VmError::RuntimeError)?;
           self.stack.push(result);
         },
-        instr if instr == OpCode::Subtract as ByteCode => {
+         OpCode::Subtract => {
           let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let result = a.subtract(&b).ok_or(VmError::RuntimeError)?;
           self.stack.push(result);
         },
-        instr if instr == OpCode::Multiply as ByteCode => {
+        OpCode::Multiply => {
           let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let result = a.multiply(&b).ok_or(VmError::RuntimeError)?;
           self.stack.push(result);
         },
-        instr if instr == OpCode::Divide as ByteCode => {
+        OpCode::Divide => {
           let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let result = a.divide(&b).ok_or(VmError::RuntimeError)?;
           self.stack.push(result);
         },
-        instr if instr == OpCode::Negate as ByteCode => {
+        OpCode::Negate => {
           let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
           let negated = value.negate().ok_or(VmError::RuntimeError)?;
           self.stack.push(negated);
         },
-        instr if instr == OpCode::Return as ByteCode => {
+         OpCode::Return => {
           let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
           println!("{:?}", value);
           return Result::Ok(());
         },
-        _ => {
-          return Result::Err(VmError::RuntimeError);
-        }
       }
     }
   }
