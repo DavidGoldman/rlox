@@ -25,6 +25,7 @@ impl SourceContext {
 #[derive(Debug)]
 pub enum ScannerError<> {
   UnexpectedEof(SourceContext),
+  UnsupportedChar(SourceContext, u8),
   InvalidNumber(SourceContext),
 }
 
@@ -72,8 +73,8 @@ impl<'a> Scanner<'a> {
         b'0'..=b'9' => self.make_number(),
         b'a'..=b'z' | b'A'..=b'Z' => self.make_identifier(),
         _ => {
-          eprintln!("unexpected byte {}", byte);
-          todo!("implement me");
+          let ctx = self.current_source_context();
+          Err(ScannerError::UnsupportedChar(ctx, byte))
         },
       }
     } else {
