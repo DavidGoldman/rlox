@@ -43,16 +43,16 @@ impl TryFrom<ByteCode> for OpCode {
 pub struct Chunk {
   code: Vec<ByteCode>,
   // FIXME: this representation is wasteful, see Chapter 14, challenge 1.
-  lines: Vec<u32>,
+  lines: Vec<usize>,
   constants: Vec<Value>,
 }
 
 impl Chunk {
-  pub fn write_op(&mut self, op: OpCode, line: u32) {
+  pub fn write_op(&mut self, op: OpCode, line: usize) {
     self.write(op as u8, line);
   }
 
-  pub fn write(&mut self, instr: ByteCode, line: u32) {
+  pub fn write(&mut self, instr: ByteCode, line: usize) {
     self.code.push(instr);
     self.lines.push(line);
   }
@@ -75,7 +75,7 @@ impl Chunk {
     self.code.get(offset)
   }
 
-  pub fn get_line(&self, offset: usize) -> u32 {
+  pub fn get_line(&self, offset: usize) -> usize {
     *self.lines.get(offset).unwrap_or(&0)
   }
 }

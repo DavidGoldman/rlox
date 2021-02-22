@@ -68,5 +68,13 @@ impl<'a> Token<'a> {
   pub fn get_type(&self) -> &TokenType {
     &self.token_type
   }
+
+  pub fn get_line(&self) -> usize {
+    self.line
+  }
+
+  pub fn copy_lexeme(&self) -> String {
+    String::from(self.lexeme)
+  }
 }
 

@@ -5,8 +5,7 @@ use std::{env, io, process};
 
 use io::{Write, stdout};
 use process::exit;
-use syntax::token::TokenType;
-use syntax::scanner::Scanner;
+use vm::{compiler::compile, vm::Vm};
 
 fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
   let args: Vec<String> = env::args().collect();
@@ -21,19 +20,10 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 }
 
 fn interpret(source: &str) {
-  let mut scanner = Scanner::new(source);
-  loop {
-    match scanner.scan_token() {
-      Ok(token) => {
-        println!("{:?}", token);
-        if *token.get_type() == TokenType::Eof {
-          break;
-        }
-      },
-      Err(error) => {
-        println!("{:?}", error);
-      },
-    }
+  // FIXME: error handling
+  if let Ok(chunk) = compile(source) {
+    let mut vm = Vm::new(&chunk);
+    let _ = vm.run();
   }
 }
 
