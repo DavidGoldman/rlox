@@ -61,11 +61,10 @@ impl Chunk {
     self.code.len()
   }
 
-  pub fn add_constant(&mut self, value: Value) -> ByteCode {
+  pub fn add_constant(&mut self, value: Value) -> Option<ByteCode> {
     let constant_idx = self.constants.len();
     self.constants.push(value);
-    // FIXME: This is unsafe, can panic at runtime if there's too many constants.
-    ByteCode::try_from(constant_idx).unwrap()
+    ByteCode::try_from(constant_idx).ok()
   }
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {

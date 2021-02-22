@@ -1,5 +1,4 @@
 use super::token::{Token, TokenType};
-use std::convert::TryFrom;
 
 pub struct Scanner<'a> {
   source: &'a str,
@@ -34,6 +33,8 @@ impl<'a> Scanner<'a> {
 
     use TokenType::*;
 
+    // FIXME: To properly support utf-8 we'd need to support extended grapheme
+    // clusters.
     if let Some(byte) = self.advance() {
       return match byte {
         b'(' => Ok(self.make_token(LeftParen)),
@@ -183,13 +184,7 @@ impl<'a> Scanner<'a> {
     if self.at_end() {
       return None;
     }
-    let current = isize::try_from(self.current).ok()?;
-
-    // FIXME: Find a good way to avoid unsafe here.
-    unsafe {
-      let ptr = self.source.as_ptr().offset(current);
-      return Some(*ptr);
-    }
+    Some(self.source.as_bytes()[self.current])
   }
 
   fn peek_next_byte(&mut self) -> Option<u8> {
