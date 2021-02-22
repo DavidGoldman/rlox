@@ -193,6 +193,8 @@ impl<'a> Parser<'a> {
     if let Ok(new_token) = result {
       let old_value = std::mem::replace(&mut self.current, new_token);
       self.previous = old_value;
+    } else {
+      println!("scanner error {:?}", result);
     }
     // FIXME: handle errors;
   }

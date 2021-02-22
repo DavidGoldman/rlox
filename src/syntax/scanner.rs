@@ -8,8 +8,24 @@ pub struct Scanner<'a> {
 }
 
 #[derive(Debug)]
-pub enum ScannerError {
-  LexError,
+pub struct SourceContext {
+  pub lexeme: String,
+  pub line: usize,
+}
+
+impl SourceContext {
+  fn new(lexeme: String, line: usize) -> Self {
+    SourceContext {
+      lexeme,
+      line,
+    }
+  }
+}
+
+#[derive(Debug)]
+pub enum ScannerError<> {
+  UnexpectedEof(SourceContext),
+  InvalidNumber(SourceContext),
 }
 
 fn is_digit(byte: u8) -> bool {
@@ -78,6 +94,10 @@ impl<'a> Scanner<'a> {
     &self.source[self.start..self.current]
   }
 
+  fn current_source_context(&self) -> SourceContext {
+    SourceContext::new(self.current_lexeme().to_string(), self.line)
+  }
+
   fn make_token(&mut self, token_type: TokenType) -> Token<'a> {
     Token::new(token_type, self.current_lexeme(), self.line)
   }
@@ -97,7 +117,7 @@ impl<'a> Scanner<'a> {
     }
 
     if self.at_end() {
-      Err(ScannerError::LexError)
+      Err(ScannerError::UnexpectedEof(self.current_source_context()))
     } else {
       self.advance();  // The closing quote.
       let parsed_str = self.source[self.start + 1..self.current - 1].to_string();
@@ -124,7 +144,7 @@ impl<'a> Scanner<'a> {
     if let Ok(number) = number_str.parse::<f64>() {
       return Ok(self.make_token(TokenType::Number(number)));
     }
-    return Err(ScannerError::LexError);
+    Err(ScannerError::InvalidNumber(self.current_source_context()))
   }
 
   fn make_identifier(&mut self) -> Result<Token<'a>, ScannerError> {
