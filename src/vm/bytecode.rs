@@ -61,10 +61,14 @@ impl Chunk {
     self.code.len()
   }
 
-  pub fn add_constant(&mut self, value: Value) -> Option<ByteCode> {
+  pub fn add_constant(&mut self, value: Value) -> Result<ByteCode, Value> {
     let constant_idx = self.constants.len();
-    self.constants.push(value);
-    ByteCode::try_from(constant_idx).ok()
+    if let Ok(bytecode_idx) = ByteCode::try_from(constant_idx) {
+      self.constants.push(value);
+      Ok(bytecode_idx)
+    } else {
+      Err(value)
+    }
   }
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {

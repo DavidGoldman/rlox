@@ -1,4 +1,4 @@
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum TokenType {
   Eof,
 
@@ -49,7 +49,7 @@ pub enum TokenType {
   While,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Token<'a> {
   token_type: TokenType,
   lexeme: &'a str,

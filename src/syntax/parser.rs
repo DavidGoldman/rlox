@@ -4,11 +4,14 @@ use crate::vm::{bytecode::{ByteCode, Chunk, OpCode}, value::Value};
 
 use super::{scanner::Scanner, token::{Token, TokenType}};
 
+pub type Line = usize;
+
 #[derive(Debug)]
 pub enum ParserError {
-  UnexpectedEof(usize),
-  UnexpectedToken(String, usize),
-  TooManyConstants(usize),
+  UnexpectedEof(Line),
+  UnexpectedToken(String, Line),
+  TooManyConstants(Value, Line),
+  TypeMismatch(TokenType, TokenType),  // expected, got
   ToDo,
 }
 
@@ -162,7 +165,7 @@ impl<'a> Parser<'a> {
 
   fn grouping(&mut self) -> Result<(), ParserError> {
     self.expression()?;
-    self.consume(TokenType::RightParen, "Expect ')' after expression.");
+    self.consume(TokenType::RightParen, "Expect ')' after expression.")?;
     Ok(())
   }
 
@@ -170,7 +173,7 @@ impl<'a> Parser<'a> {
     match self.previous.get_type() {
       TokenType::Minus => {
         // Compile the operand.
-        self.parse_precedence(Precedence::Unary);
+        self.parse_precedence(Precedence::Unary)?;
         // FIXME: We need to pass the line number here.
         self.emit_opcode(OpCode::Negate);
       }
@@ -183,8 +186,12 @@ impl<'a> Parser<'a> {
 
   fn number(&mut self) -> Result<(), ParserError> {
     return match self.previous.get_type() {
-      TokenType::Number(num) => self.emit_constant(Value::Number(*num)),
-      _ => Err(ParserError::ToDo),
+      TokenType::Number(num) => {
+        let val = Value::Number(*num);
+        self.emit_constant(val)
+      },
+      _ => Err(ParserError::TypeMismatch(
+          TokenType::Number(0f64), self.previous.get_type().clone())),
     }
   }
 
@@ -199,12 +206,13 @@ impl<'a> Parser<'a> {
     // FIXME: handle errors;
   }
 
-  pub fn consume(&mut self, token: TokenType, message: &str) {
+  pub fn consume(&mut self, token: TokenType, message: &str) -> Result<(), ParserError> {
     if *self.current.get_type() == token {
       self.advance();
-      return;
+      Ok(())
+    } else {
+      Err(ParserError::UnexpectedToken(message.to_string(), self.current.get_line()))
     }
-    // FIXME: error messages.
   }
 
   fn emit_bytecode(&mut self, bytecode: ByteCode) {
@@ -217,26 +225,14 @@ impl<'a> Parser<'a> {
 
   fn emit_constant(&mut self, value: Value) -> Result<(), ParserError> {
     match self.chunk.add_constant(value) {
-      Some(idx) => {
+      Ok(idx) => {
         self.emit_opcode(OpCode::Constant);
         self.emit_bytecode(idx);
         Ok(())
       },
-      None => {
-        Err(ParserError::TooManyConstants(self.previous.get_line()))
+      Err(value) => {
+        Err(ParserError::TooManyConstants(value, self.previous.get_line()))
       },
     }
-  }
-
-  fn error_at(&mut self, token: &Token) {
-    if (self.panic_mode) {
-      return;
-    }
-    self.panic_mode = true;
-    let error = match token.get_type() {
-      TokenType::Eof => ParserError::UnexpectedEof(token.get_line()),
-      _ => ParserError::UnexpectedToken(token.copy_lexeme(), token.get_line())
-    };
-    self.errors.push(error);
   }
 }
