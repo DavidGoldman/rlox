@@ -49,6 +49,23 @@ impl<'a> Vm<'a> {
         OpCode::Nil => self.stack.push(Value::Nil),
         OpCode::True => self.stack.push(Value::Bool(true)),
         OpCode::False => self.stack.push(Value::Bool(false)),
+        OpCode::Equal => {
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          self.stack.push(Value::Bool(a.equal(&b)));
+        },
+        OpCode::Greater => {
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.greater(&b)?;
+          self.stack.push(Value::Bool(result));
+        },
+        OpCode::Less => {
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.less(&b)?;
+          self.stack.push(Value::Bool(result));
+        },
         OpCode::Add => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
           let a = self.stack.pop().ok_or(VmError::EmptyStack)?;

@@ -110,8 +110,24 @@ impl<'a> Parser<'a> {
     let previous = &self.previous;
     let op_type = previous.get_type();
 
-    // Remember the operator.
+    // Remember the operator, including if we need a not.
+    let mut add_not = false;
     let opcode = match op_type {
+      TokenType::EqualEqual => OpCode::Equal,
+      TokenType::BangEqual => {
+        add_not = true;
+        OpCode::Equal
+      }
+      TokenType::Greater => OpCode::Greater,
+      TokenType::GreaterEqual => {
+        add_not = true;
+        OpCode::Less
+      }
+      TokenType::Less => OpCode::Less,
+      TokenType::LessEqual => {
+        add_not = true;
+        OpCode::Greater
+      }
       TokenType::Plus => OpCode::Add,
       TokenType::Minus => OpCode::Subtract,
       TokenType::Star => OpCode::Multiply,
@@ -129,6 +145,9 @@ impl<'a> Parser<'a> {
     self.parse_precedence(rule.precedence.one_higher())?;
 
     self.emit_opcode(opcode);
+    if add_not {
+      self.emit_opcode(OpCode::Not);
+    }
     Ok(())
   }
 
@@ -159,6 +178,9 @@ impl<'a> Parser<'a> {
       TokenType::Slash | TokenType::Star =>
           ParseRule::new(None, Some(Parser::binary), Precedence::Factor),
       TokenType::Bang => ParseRule::new(Some(Parser::unary), None, Precedence::None),
+      TokenType::BangEqual | TokenType::EqualEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Equality),
+      TokenType::Greater | TokenType::GreaterEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
+      TokenType::Less | TokenType::LessEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
       TokenType::Number(_) => ParseRule::new(Some(Parser::number), None, Precedence::None),
       _ => ParseRule::new(None, None, Precedence::None),
     }

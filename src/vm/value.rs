@@ -17,6 +17,32 @@ impl Value {
     }
   }
 
+  pub fn equal(&self, other: &Value) -> bool {
+    use Value::*;
+    match (self, other) {
+      (Nil, Nil) => true,
+      (Bool(a), Bool(b)) => a == b,
+      (Number(a), Number(b)) => a == b,
+      _ => false,
+    }
+  }
+
+  pub fn greater(&self, other: &Value) -> Result<bool, VmError> {
+    use Value::*;
+    match (self, other) {
+      (Number(a), Number(b)) => Ok(a > b),
+      _ => Err(VmError::TypeError("> requires two numbers".to_string())),
+    }
+  }
+
+  pub fn less(&self, other: &Value) -> Result<bool, VmError> {
+    use Value::*;
+    match (self, other) {
+      (Number(a), Number(b)) => Ok(a < b),
+      _ => Err(VmError::TypeError("< requires two numbers".to_string())),
+    }
+  }
+
   pub fn add(&self, other: &Value) -> Result<Value, VmError> {
     use Value::*;
     match (self, other) {
