@@ -21,8 +21,8 @@ fn main() -> Result<(), Box<dyn std::error::Error + 'static>> {
 
 fn interpret(source: &str) {
   // FIXME: error handling
-  if let Ok(chunk) = compile(source) {
-    let mut vm = Vm::new(&chunk);
+  if let Ok(mut chunk) = compile(source) {
+    let mut vm = Vm::new(&mut chunk);
     let _ = vm.run();
   }
 }

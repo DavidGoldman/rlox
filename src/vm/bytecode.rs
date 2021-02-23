@@ -1,4 +1,6 @@
 use std::{convert::TryFrom, ops::Index, usize};
+use string_interner::StringInterner;
+
 use super::value::Value;
 
 pub type Offset = usize;
@@ -56,16 +58,18 @@ impl TryFrom<ByteCode> for OpCode {
 #[derive(Debug, Default)]
 pub struct Chunk {
   code: Vec<ByteCode>,
+  strings: StringInterner,
   // FIXME: this representation is wasteful, see Chapter 14, challenge 1.
   lines: Vec<usize>,
   constants: Vec<Value>,
 }
 
-impl Chunk {
-  pub fn write_op(&mut self, op: OpCode, line: usize) {
-    self.write(op as u8, line);
-  }
+pub(crate) enum ChunkConstant<'a> {
+  Number(f64),
+  String(&'a str),
+}
 
+impl Chunk {
   pub fn write(&mut self, instr: ByteCode, line: usize) {
     self.code.push(instr);
     self.lines.push(line);
@@ -75,14 +79,26 @@ impl Chunk {
     self.code.len()
   }
 
-  pub fn add_constant(&mut self, value: Value) -> Result<ByteCode, Value> {
+  pub(crate) fn add_constant(&mut self, constant: ChunkConstant) -> Result<ByteCode, Value> {
     let constant_idx = self.constants.len();
     if let Ok(bytecode_idx) = ByteCode::try_from(constant_idx) {
+      let value = self.value_for_constant(constant);
       self.constants.push(value);
       Ok(bytecode_idx)
     } else {
-      Err(value)
+      Err(self.value_for_constant(constant))
     }
+  }
+
+  fn value_for_constant(&mut self, constant: ChunkConstant) -> Value {
+    match constant {
+      ChunkConstant::Number(num) => Value::Number(num),
+      ChunkConstant::String(str) => Value::InternedString(self.strings.get_or_intern(str)),
+    }
+  }
+
+  pub fn interner(&mut self) -> &mut StringInterner {
+    &mut self.strings
   }
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {

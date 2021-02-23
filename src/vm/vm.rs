@@ -12,7 +12,7 @@ pub enum VmError {
 }
 
 pub struct Vm<'a> {
-  chunk: &'a Chunk,
+  chunk: &'a mut Chunk,
   ip: usize,
   stack: Vec<Value>,
 }
@@ -20,7 +20,7 @@ pub struct Vm<'a> {
 static TRACE_VM: bool = false;
 
 impl<'a> Vm<'a> {
-  pub fn new(chunk: &'a Chunk) -> Vm<'a> {
+  pub fn new(chunk: &'a mut Chunk) -> Vm<'a> {
     Vm {
       chunk,
       ip: 0,
@@ -69,7 +69,7 @@ impl<'a> Vm<'a> {
         OpCode::Add => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
           let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          let result = a.add(&b)?;
+          let result = a.add(&b, self.chunk.interner())?;
           self.stack.push(result);
         },
          OpCode::Subtract => {
@@ -92,7 +92,7 @@ impl<'a> Vm<'a> {
         },
         OpCode::Not => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          self.stack.push(Value::Bool(b.is_falsey()));
+          self.stack.push(Value::Bool(b.is_falsey(self.chunk.interner())));
         },
         OpCode::Negate => {
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;

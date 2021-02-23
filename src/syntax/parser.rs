@@ -1,6 +1,6 @@
 use std::{convert::TryFrom, mem::replace};
 
-use crate::vm::{bytecode::{ByteCode, Chunk, OpCode}, value::Value};
+use crate::vm::{bytecode::{ByteCode, Chunk, ChunkConstant, OpCode}, value::Value};
 
 use super::{scanner::Scanner, token::{Token, TokenType}};
 
@@ -239,8 +239,8 @@ impl<'a> Parser<'a> {
   fn string(&mut self) -> Result<(), ParserError> {
     return match self.previous.get_type() {
       TokenType::String(str) => {
-        let val = Value::String(str.clone());
-        self.emit_constant(val)
+        let res = self.chunk.add_constant(ChunkConstant::String(str));
+        self.emit_constant(res)
       },
       _ => Err(ParserError::TypeMismatch(
           TokenType::String("".to_string()), self.previous.get_type().clone())),
@@ -250,8 +250,8 @@ impl<'a> Parser<'a> {
   fn number(&mut self) -> Result<(), ParserError> {
     return match self.previous.get_type() {
       TokenType::Number(num) => {
-        let val = Value::Number(*num);
-        self.emit_constant(val)
+        let res = self.chunk.add_constant(ChunkConstant::Number(*num));
+        self.emit_constant(res)
       },
       _ => Err(ParserError::TypeMismatch(
           TokenType::Number(0f64), self.previous.get_type().clone())),
@@ -286,8 +286,8 @@ impl<'a> Parser<'a> {
     self.emit_bytecode(opcode as u8);
   }
 
-  fn emit_constant(&mut self, value: Value) -> Result<(), ParserError> {
-    match self.chunk.add_constant(value) {
+  fn emit_constant(&mut self, res: Result<ByteCode, Value>) -> Result<(), ParserError> {
+    match res {
       Ok(idx) => {
         self.emit_opcode(OpCode::Constant);
         self.emit_bytecode(idx);
