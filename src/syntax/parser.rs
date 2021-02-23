@@ -2,7 +2,7 @@ use std::{convert::TryFrom, mem::replace};
 
 use crate::vm::{bytecode::{ByteCode, Chunk, ChunkConstant, OpCode}, value::Value};
 
-use super::{scanner::Scanner, token::{Token, TokenType}};
+use super::{scanner::Scanner, token::{LiteralConstant, Token, TokenType}};
 
 pub type Line = usize;
 
@@ -93,8 +93,8 @@ impl<'a> Parser<'a> {
       chunk,
       errors: Vec::new(),
       panic_mode: false,
-      current: Token::new(TokenType::Eof, "", 0),
-      previous: Token::new(TokenType::Eof, "", 0),
+      current: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
+      previous: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
     }
   }
 
@@ -181,8 +181,8 @@ impl<'a> Parser<'a> {
       TokenType::BangEqual | TokenType::EqualEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Equality),
       TokenType::Greater | TokenType::GreaterEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
       TokenType::Less | TokenType::LessEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
-      TokenType::String(_) => ParseRule::new(Some(Parser::string), None, Precedence::None),
-      TokenType::Number(_) => ParseRule::new(Some(Parser::number), None, Precedence::None),
+      TokenType::String => ParseRule::new(Some(Parser::string), None, Precedence::None),
+      TokenType::Number => ParseRule::new(Some(Parser::number), None, Precedence::None),
       _ => ParseRule::new(None, None, Precedence::None),
     }
   }
@@ -237,25 +237,25 @@ impl<'a> Parser<'a> {
   }
 
   fn string(&mut self) -> Result<(), ParserError> {
-    return match self.previous.get_type() {
-      TokenType::String(str) => {
+    if *self.previous.get_type() == TokenType::String {
+      if let LiteralConstant::String(str) = self.previous.get_literal() {
         let res = self.chunk.add_constant(ChunkConstant::String(str));
-        self.emit_constant(res)
-      },
-      _ => Err(ParserError::TypeMismatch(
-          TokenType::String("".to_string()), self.previous.get_type().clone())),
+        return self.emit_constant(res)
+      }
     }
+    return Err(ParserError::TypeMismatch(
+        TokenType::String, *self.previous.get_type()));
   }
 
   fn number(&mut self) -> Result<(), ParserError> {
-    return match self.previous.get_type() {
-      TokenType::Number(num) => {
-        let res = self.chunk.add_constant(ChunkConstant::Number(*num));
-        self.emit_constant(res)
-      },
-      _ => Err(ParserError::TypeMismatch(
-          TokenType::Number(0f64), self.previous.get_type().clone())),
+    if *self.previous.get_type() == TokenType::Number {
+      if let LiteralConstant::Number(num) = self.previous.get_literal() {
+        let res = self.chunk.add_constant(ChunkConstant::Number(num));
+        return self.emit_constant(res);
+      }
     }
+    return Err(ParserError::TypeMismatch(
+        TokenType::Number, *self.previous.get_type()));
   }
 
   pub fn advance(&mut self) {

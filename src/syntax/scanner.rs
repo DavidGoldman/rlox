@@ -1,4 +1,4 @@
-use super::token::{Token, TokenType};
+use super::token::{LiteralConstant, Token, TokenType};
 
 pub struct Scanner<'a> {
   source: &'a str,
@@ -100,7 +100,11 @@ impl<'a> Scanner<'a> {
   }
 
   fn make_token(&mut self, token_type: TokenType) -> Token<'a> {
-    Token::new(token_type, self.current_lexeme(), self.line)
+    self.make_literal(token_type, LiteralConstant::None)
+  }
+
+  fn make_literal(&mut self, token_type: TokenType, literal: LiteralConstant<'a>) -> Token<'a> {
+    Token::new(token_type, self.current_lexeme(), literal, self.line)
   }
 
   fn make_string(&mut self) -> Result<Token<'a>, ScannerError> {
@@ -121,8 +125,8 @@ impl<'a> Scanner<'a> {
       Err(ScannerError::UnexpectedEof(self.current_source_context()))
     } else {
       self.advance();  // The closing quote.
-      let parsed_str = self.source[self.start + 1..self.current - 1].to_string();
-      Ok(self.make_token(TokenType::String(parsed_str)))
+      let parsed_str = &self.source[self.start + 1..self.current - 1];
+      Ok(self.make_literal(TokenType::String, LiteralConstant::String(parsed_str)))
     }
   }
 
@@ -142,10 +146,11 @@ impl<'a> Scanner<'a> {
     }
 
     let number_str = self.current_lexeme();
-    if let Ok(number) = number_str.parse::<f64>() {
-      return Ok(self.make_token(TokenType::Number(number)));
+    if let Ok(num) = number_str.parse::<f64>() {
+      Ok(self.make_literal(TokenType::Number, LiteralConstant::Number(num)))
+    } else {
+      Err(ScannerError::InvalidNumber(self.current_source_context()))
     }
-    Err(ScannerError::InvalidNumber(self.current_source_context()))
   }
 
   fn make_identifier(&mut self) -> Result<Token<'a>, ScannerError> {
@@ -178,9 +183,7 @@ impl<'a> Scanner<'a> {
       "true" => TokenType::True,
       "var" => TokenType::Var,
       "while" => TokenType::While,
-      _ => {
-        TokenType::Identifier(identifier_str.to_string())
-      }
+      _ => TokenType::Identifier,
     }
   }
 

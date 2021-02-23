@@ -1,4 +1,4 @@
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TokenType {
   Eof,
 
@@ -25,10 +25,10 @@ pub enum TokenType {
   Less,
   LessEqual,
 
-  // Literals.
-  Identifier(String),
-  String(String),
-  Number(f64),
+  // Literals, values stored in `LiteralConstant` or the lexeme.
+  Identifier,
+  String,
+  Number,
 
   // Keywords.
   And,
@@ -49,18 +49,27 @@ pub enum TokenType {
   While,
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum LiteralConstant<'a> {
+  None,
+  String(&'a str),
+  Number(f64),
+}
+
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
   token_type: TokenType,
   lexeme: &'a str,
+  literal: LiteralConstant<'a>,
   line: usize,
 }
 
 impl<'a> Token<'a> {
-  pub fn new(token_type: TokenType, lexeme: &'a str, line: usize) -> Token<'a> {
+  pub fn new(token_type: TokenType, lexeme: &'a str, literal: LiteralConstant<'a>, line: usize) -> Token<'a> {
     Token {
       token_type,
       lexeme,
+      literal,
       line,
     }
   }
@@ -69,12 +78,16 @@ impl<'a> Token<'a> {
     &self.token_type
   }
 
-  pub fn get_line(&self) -> usize {
-    self.line
-  }
-
   pub fn get_lexeme(&self) -> &str {
     self.lexeme
+  }
+
+  pub fn get_literal(&self) -> LiteralConstant<'a> {
+    self.literal
+  }
+
+  pub fn get_line(&self) -> usize {
+    self.line
   }
 }
 
