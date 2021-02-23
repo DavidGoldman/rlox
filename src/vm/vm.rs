@@ -2,8 +2,11 @@ use std::convert::TryFrom;
 
 use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instruction, value::Value};
 
+// FIXME: improve these messages to support line numbers.
 #[derive(Debug)]
 pub enum VmError {
+  EmptyStack,
+  TypeError(String),
   CompileError,
   RuntimeError,
 }
@@ -43,37 +46,44 @@ impl<'a> Vm<'a> {
           let constant = self.read_constant().ok_or(VmError::RuntimeError)?.clone();
           self.stack.push(constant);
         },
+        OpCode::Nil => self.stack.push(Value::Nil),
+        OpCode::True => self.stack.push(Value::Bool(true)),
+        OpCode::False => self.stack.push(Value::Bool(false)),
         OpCode::Add => {
-          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let result = a.add(&b).ok_or(VmError::RuntimeError)?;
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.add(&b)?;
           self.stack.push(result);
         },
          OpCode::Subtract => {
-          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let result = a.subtract(&b).ok_or(VmError::RuntimeError)?;
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.subtract(&b)?;
           self.stack.push(result);
         },
         OpCode::Multiply => {
-          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let result = a.multiply(&b).ok_or(VmError::RuntimeError)?;
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.multiply(&b)?;
           self.stack.push(result);
         },
         OpCode::Divide => {
-          let b = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let a = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let result = a.divide(&b).ok_or(VmError::RuntimeError)?;
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let result = a.divide(&b)?;
           self.stack.push(result);
         },
+        OpCode::Not => {
+          let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          self.stack.push(Value::Bool(b.is_falsey()));
+        },
         OpCode::Negate => {
-          let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
-          let negated = value.negate().ok_or(VmError::RuntimeError)?;
+          let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let negated = value.negate()?;
           self.stack.push(negated);
         },
         OpCode::Return => {
-          let value = self.stack.pop().ok_or(VmError::RuntimeError)?;
+          let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
           println!("{:?}", value);
           return Result::Ok(());
         },

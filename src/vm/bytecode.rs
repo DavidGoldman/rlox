@@ -10,10 +10,14 @@ pub type ByteCode = u8;
 #[repr(u8)]
 pub enum OpCode {
   Constant,
+  Nil,
+  True,
+  False,
   Add,
   Subtract,
   Multiply,
   Divide,
+  Not,
   Negate,
   Return,
 }
@@ -28,10 +32,14 @@ impl TryFrom<ByteCode> for OpCode {
     use OpCode::*;
     match v {
       x if x == Constant as ByteCode => Ok(Constant),
+      x if x == Nil as ByteCode => Ok(Nil),
+      x if x == True as ByteCode => Ok(True),
+      x if x == False as ByteCode => Ok(False),
       x if x == Add as ByteCode => Ok(Add),
       x if x == Subtract as ByteCode => Ok(Subtract),
       x if x == Multiply as ByteCode => Ok(Multiply),
       x if x == Divide as ByteCode => Ok(Divide),
+      x if x == Not as ByteCode => Ok(Not),
       x if x == Negate as ByteCode => Ok(Negate),
       x if x == Return as ByteCode => Ok(Return),
       _ => Err(()),

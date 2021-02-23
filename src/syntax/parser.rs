@@ -132,6 +132,20 @@ impl<'a> Parser<'a> {
     Ok(())
   }
 
+  fn literal(&mut self) -> Result<(), ParserError> {
+    let prev = &self.previous;
+    match prev.get_type() {
+      TokenType::False => self.emit_opcode(OpCode::False),
+      TokenType::Nil => self.emit_opcode(OpCode::Nil),
+      TokenType::True => self.emit_opcode(OpCode::True),
+      _ => {
+        let message = format!("Invalid literal {}", prev.get_lexeme());
+        return Err(ParserError::InternalError(message, prev.get_line()));
+      },
+    }
+    Ok(())
+  }
+
   pub fn expression(&mut self) -> Result<(), ParserError> {
     self.parse_precedence(Precedence::Assignment)
   }
@@ -139,10 +153,12 @@ impl<'a> Parser<'a> {
   fn get_rule(token: &TokenType) -> ParseRule<'a> {
     match token {
       TokenType::LeftParen => ParseRule::new(Some(Parser::grouping), None, Precedence::None),
+      TokenType::False | TokenType::Nil | TokenType::True => ParseRule::new(Some(Parser::literal), None, Precedence::None),
       TokenType::Minus => ParseRule::new(Some(Parser::unary), Some(Parser::binary), Precedence::Term),
       TokenType::Plus => ParseRule::new(None, Some(Parser::binary), Precedence::Term),
-      TokenType::Slash => ParseRule::new(None, Some(Parser::binary), Precedence::Factor),
-      TokenType::Star => ParseRule::new(None, Some(Parser::binary), Precedence::Factor),
+      TokenType::Slash | TokenType::Star =>
+          ParseRule::new(None, Some(Parser::binary), Precedence::Factor),
+      TokenType::Bang => ParseRule::new(Some(Parser::unary), None, Precedence::None),
       TokenType::Number(_) => ParseRule::new(Some(Parser::number), None, Precedence::None),
       _ => ParseRule::new(None, None, Precedence::None),
     }
@@ -178,15 +194,20 @@ impl<'a> Parser<'a> {
   }
 
   fn unary(&mut self) -> Result<(), ParserError> {
-    match self.previous.get_type() {
+    let prev = &self.previous;
+    match prev.get_type() {
+      // FIXME: We need to pass the line number here.
+      TokenType::Bang => {
+        self.parse_precedence(Precedence::Unary)?;  // Compile the operand.
+        self.emit_opcode(OpCode::Not);
+      },
       TokenType::Minus => {
-        // Compile the operand.
-        self.parse_precedence(Precedence::Unary)?;
-        // FIXME: We need to pass the line number here.
+        self.parse_precedence(Precedence::Unary)?;  // Compile the operand.
         self.emit_opcode(OpCode::Negate);
       }
       _ => {
-        // Unreachable.
+        let message = format!("Invalid unary op {}", prev.get_lexeme());
+        return Err(ParserError::InternalError(message, prev.get_line()));
       },
     };
     Ok(())
@@ -209,9 +230,9 @@ impl<'a> Parser<'a> {
       let old_value = std::mem::replace(&mut self.current, new_token);
       self.previous = old_value;
     } else {
+      // FIXME: Handle scanner errors
       println!("scanner error {:?}", result);
     }
-    // FIXME: handle errors;
   }
 
   pub fn consume(&mut self, token: TokenType, message: &str) -> Result<(), ParserError> {
