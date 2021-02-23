@@ -73,8 +73,8 @@ impl<'a> Token<'a> {
     self.line
   }
 
-  pub fn copy_lexeme(&self) -> String {
-    String::from(self.lexeme)
+  pub fn get_lexeme(&self) -> &str {
+    self.lexeme
   }
 }
 

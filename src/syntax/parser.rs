@@ -8,11 +8,11 @@ pub type Line = usize;
 
 #[derive(Debug)]
 pub enum ParserError {
-  UnexpectedEof(Line),
-  UnexpectedToken(String, Line),
+  ExpectExpression(String, Line),
   TooManyConstants(Value, Line),
   TypeMismatch(TokenType, TokenType),  // expected, got
-  ToDo,
+  UnexpectedToken(String, Line),
+  InternalError(String, Line),
 }
 
 #[derive(PartialEq, PartialOrd, Eq, Ord, Copy, Clone)]
@@ -107,24 +107,28 @@ impl<'a> Parser<'a> {
   }
 
   fn binary(&mut self) -> Result<(), ParserError> {
-    let op_type = self.previous.get_type();
+    let previous = &self.previous;
+    let op_type = previous.get_type();
 
     // Remember the operator.
-    let maybe_opcode = match op_type {
-      TokenType::Plus => Some(OpCode::Add),
-      TokenType::Minus => Some(OpCode::Subtract),
-      TokenType::Star => Some(OpCode::Multiply),
-      TokenType::Slash => Some(OpCode::Divide),
-      _ => None,
+    let opcode = match op_type {
+      TokenType::Plus => OpCode::Add,
+      TokenType::Minus => OpCode::Subtract,
+      TokenType::Star => OpCode::Multiply,
+      TokenType::Slash => OpCode::Divide,
+      _ => {
+        let error =
+            format!("Invalid binary operator {}", previous.get_lexeme());
+        let line = previous.get_line();
+        return Err(ParserError::UnexpectedToken(error, line));
+      },
     };
 
     // Compile the right operand.
     let rule = Parser::get_rule(op_type);
     self.parse_precedence(rule.precedence.one_higher())?;
 
-    let opcode = maybe_opcode.ok_or(ParserError::ToDo)?;
     self.emit_opcode(opcode);
-
     Ok(())
   }
 
@@ -154,12 +158,16 @@ impl<'a> Parser<'a> {
         if let Some(infix_fn) = Parser::get_rule(self.previous.get_type()).infix {
           infix_fn(self)?;
         } else {
-          return Err(ParserError::ToDo);
+          let prev = &self.previous;
+          let message = format!("No infix parser rule for {}", prev.get_lexeme());
+          return Err(ParserError::InternalError(message, prev.get_line()));
         }
       }
       Ok(())
     } else {
-      Err(ParserError::ToDo)
+      let got = self.previous.get_lexeme().to_string();
+      let line = self.previous.get_line();
+      Err(ParserError::ExpectExpression(got, line))
     }
   }
 
