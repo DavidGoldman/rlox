@@ -5,6 +5,7 @@ pub enum Value {
   Nil,
   Bool(bool),
   Number(f64),
+  String(String),
 }
 
 impl Value {
@@ -13,6 +14,7 @@ impl Value {
     match self {
       Nil => true,
       Bool(val) => !val,
+      String(val) => return val.len() == 0,
       _ => false,
     }
   }
@@ -23,6 +25,7 @@ impl Value {
       (Nil, Nil) => true,
       (Bool(a), Bool(b)) => a == b,
       (Number(a), Number(b)) => a == b,
+      (String(a), String(b)) => a == b,
       _ => false,
     }
   }
@@ -47,6 +50,7 @@ impl Value {
     use Value::*;
     match (self, other) {
       (Number(a), Number(b)) => Ok(Number(a + b)),
+      (String(a), String(b)) => Ok(String(a.to_owned() + b)),
       _ => Err(VmError::TypeError("+ requires two numbers".to_string())),
     }
   }

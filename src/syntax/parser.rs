@@ -181,6 +181,7 @@ impl<'a> Parser<'a> {
       TokenType::BangEqual | TokenType::EqualEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Equality),
       TokenType::Greater | TokenType::GreaterEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
       TokenType::Less | TokenType::LessEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
+      TokenType::String(_) => ParseRule::new(Some(Parser::string), None, Precedence::None),
       TokenType::Number(_) => ParseRule::new(Some(Parser::number), None, Precedence::None),
       _ => ParseRule::new(None, None, Precedence::None),
     }
@@ -233,6 +234,17 @@ impl<'a> Parser<'a> {
       },
     };
     Ok(())
+  }
+
+  fn string(&mut self) -> Result<(), ParserError> {
+    return match self.previous.get_type() {
+      TokenType::String(str) => {
+        let val = Value::String(str.clone());
+        self.emit_constant(val)
+      },
+      _ => Err(ParserError::TypeMismatch(
+          TokenType::String("".to_string()), self.previous.get_type().clone())),
+    }
   }
 
   fn number(&mut self) -> Result<(), ParserError> {
