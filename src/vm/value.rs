@@ -51,7 +51,7 @@ impl Value {
     match (self, other) {
       (Number(a), Number(b)) => Ok(Number(a + b)),
       (String(a), String(b)) => Ok(String(a.to_owned() + b)),
-      _ => Err(VmError::TypeError("+ requires two numbers".to_string())),
+      _ => Err(VmError::TypeError("+ requires two numbers or strings".to_string())),
     }
   }
 
