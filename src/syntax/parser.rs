@@ -250,6 +250,7 @@ impl<'a> Parser<'a> {
       TokenType::BangEqual | TokenType::EqualEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Equality),
       TokenType::Greater | TokenType::GreaterEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
       TokenType::Less | TokenType::LessEqual => ParseRule::new(None, Some(Parser::binary), Precedence::Comparison),
+      TokenType::Identifier => ParseRule::new(Some(Parser::variable), None, Precedence::None),
       TokenType::String => ParseRule::new(Some(Parser::string), None, Precedence::None),
       TokenType::Number => ParseRule::new(Some(Parser::number), None, Precedence::None),
       _ => ParseRule::new(None, None, Precedence::None),
@@ -319,6 +320,17 @@ impl<'a> Parser<'a> {
     }
     return Err(ParserError::TypeMismatch(
         TokenType::String, *self.previous.get_type()));
+  }
+
+  fn named_variable(&mut self) -> Result<(), ParserError> {
+    let name = self.previous.get_lexeme();
+    let res = self.chunk.add_constant(ChunkConstant::String(name));
+
+    self.emit_constant(res, OpCode::GetGlobal)
+  }
+
+  fn variable(&mut self) -> Result<(), ParserError> {
+    self.named_variable()
   }
 
   fn number(&mut self) -> Result<(), ParserError> {

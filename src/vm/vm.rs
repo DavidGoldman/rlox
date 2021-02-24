@@ -8,7 +8,8 @@ use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instr
 pub enum VmError {
   EmptyStack,
   TypeError(String),
-  InvalidVariable(Value),
+  InvalidVariable(Value),  // bad interning
+  UndefinedVariable,
   RuntimeError,
 }
 
@@ -55,11 +56,17 @@ impl<'a> Vm<'a> {
         OpCode::Pop => {
           self.stack.pop().ok_or(VmError::EmptyStack)?;
         },
+        OpCode::GetGlobal => {
+          let constant_idx = self.read_byte().ok_or(VmError::RuntimeError)?;
+          let name = self.chunk.get_constant(constant_idx).ok_or(VmError::RuntimeError)?;
+          let value = Vm::load(&mut self.globals, name)?;
+          self.stack.push(value);
+        },
         OpCode::DefineGlobal => {
           let constant_idx = self.read_byte().ok_or(VmError::RuntimeError)?;
           let name = self.chunk.get_constant(constant_idx).ok_or(VmError::RuntimeError)?;
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          Vm::store_global(&mut self.globals, name, value)?;
+          Vm::store(&mut self.globals, name, value)?;
         },
         OpCode::Equal => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
@@ -124,7 +131,21 @@ impl<'a> Vm<'a> {
     }
   }
 
-  fn store_global(map: &mut HashMap<usize, Value>, key: &Value,
+  fn load(map: &mut HashMap<usize, Value>, key: &Value) -> Result<Value, VmError> {
+    match key {
+      Value::InternedString(interned_key) => {
+        match map.get(&interned_key.to_usize()) {
+          // FIXME: avoid cloning values here.
+          Some(val) => Ok(val.clone()),
+          // FIXME: include actual string value here.
+          None => Err(VmError::UndefinedVariable),
+        }
+      },
+      _ => Err(VmError::InvalidVariable(key.clone())),
+    }
+  }
+
+  fn store(map: &mut HashMap<usize, Value>, key: &Value,
       value: Value) -> Result<(), VmError> {
     match key {
       Value::InternedString(interned_key) => {

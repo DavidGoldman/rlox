@@ -27,7 +27,11 @@ pub fn disassemble_instruction(
       OpCode::Constant => {
         output.push_str(constant_instruction("Constant", chunk, offset).as_str());
         return offset + 2;
-      }
+      },
+      OpCode::GetGlobal => {
+        output.push_str(constant_instruction("GetGlobal", chunk, offset).as_str());
+        return offset + 2;
+      },
       OpCode::DefineGlobal => {
         output.push_str(constant_instruction("DefineGlobal", chunk, offset).as_str());
         return offset + 2;
