@@ -66,7 +66,6 @@ impl TryFrom<ByteCode> for OpCode {
 #[derive(Debug, Default)]
 pub struct Chunk {
   code: Vec<ByteCode>,
-  strings: StringInterner,
   // FIXME: this representation is wasteful, see Chapter 14, challenge 1.
   lines: Vec<usize>,
   constants: Vec<Value>,
@@ -87,26 +86,22 @@ impl Chunk {
     self.code.len()
   }
 
-  pub(crate) fn add_constant(&mut self, constant: ChunkConstant) -> Result<ByteCode, Value> {
+  pub(crate) fn add_constant(&mut self, interner: &mut StringInterner, constant: ChunkConstant) -> Result<ByteCode, Value> {
     let constant_idx = self.constants.len();
     if let Ok(bytecode_idx) = ByteCode::try_from(constant_idx) {
-      let value = self.value_for_constant(constant);
+      let value = self.value_for_constant(interner, constant);
       self.constants.push(value);
       Ok(bytecode_idx)
     } else {
-      Err(self.value_for_constant(constant))
+      Err(self.value_for_constant(interner, constant))
     }
   }
 
-  fn value_for_constant(&mut self, constant: ChunkConstant) -> Value {
+  fn value_for_constant(&mut self, interner: &mut StringInterner, constant: ChunkConstant) -> Value {
     match constant {
       ChunkConstant::Number(num) => Value::Number(num),
-      ChunkConstant::String(str) => Value::InternedString(self.strings.get_or_intern(str)),
+      ChunkConstant::String(str) => Value::InternedString(interner.get_or_intern(str)),
     }
-  }
-
-  pub fn interner(&mut self) -> &mut StringInterner {
-    &mut self.strings
   }
 
   pub fn get_constant(&self, offset: ByteCode) -> Option<&Value> {

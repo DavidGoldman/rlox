@@ -1,5 +1,7 @@
 use std::{convert::TryFrom, mem::replace};
 
+use string_interner::StringInterner;
+
 use crate::vm::{bytecode::{ByteCode, Chunk, ChunkConstant, OpCode}, value::Value};
 
 use super::{scanner::Scanner, token::{LiteralConstant, Token, TokenType}};
@@ -62,6 +64,7 @@ impl Precedence {
 pub struct Parser<'a> {
   scanner: Scanner<'a>,
   chunk: &'a mut Chunk,
+  interner: &'a mut StringInterner,
   errors: Vec<ParserError>,
   current: Token<'a>,
   previous: Token<'a>,
@@ -86,10 +89,11 @@ impl <'a> ParseRule<'a> {
 }
 
 impl<'a> Parser<'a> {
-  pub fn new(source: &'a str, chunk: &'a mut Chunk) -> Parser<'a> {
+  pub fn new(source: &'a str, chunk: &'a mut Chunk, interner: &'a mut StringInterner) -> Parser<'a> {
     Parser {
       scanner: Scanner::new(source),
       chunk,
+      interner,
       errors: Vec::new(),
       current: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
       previous: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
@@ -308,13 +312,13 @@ impl<'a> Parser<'a> {
 
   fn parse_variable(&mut self) -> Result<u8, Value> {
     let name = self.previous.get_lexeme();
-    self.chunk.add_constant(ChunkConstant::String(name))
+    self.chunk.add_constant(&mut self.interner, ChunkConstant::String(name))
   }
 
   fn string(&mut self) -> Result<(), ParserError> {
     if *self.previous.get_type() == TokenType::String {
       if let LiteralConstant::String(str) = self.previous.get_literal() {
-        let res = self.chunk.add_constant(ChunkConstant::String(str));
+        let res = self.chunk.add_constant(&mut self.interner, ChunkConstant::String(str));
         return self.emit_constant(res, OpCode::Constant);
       }
     }
@@ -324,7 +328,7 @@ impl<'a> Parser<'a> {
 
   fn named_variable(&mut self) -> Result<(), ParserError> {
     let name = self.previous.get_lexeme();
-    let res = self.chunk.add_constant(ChunkConstant::String(name));
+    let res = self.chunk.add_constant(&mut self.interner, ChunkConstant::String(name));
 
     self.emit_constant(res, OpCode::GetGlobal)
   }
@@ -336,7 +340,7 @@ impl<'a> Parser<'a> {
   fn number(&mut self) -> Result<(), ParserError> {
     if *self.previous.get_type() == TokenType::Number {
       if let LiteralConstant::Number(num) = self.previous.get_literal() {
-        let res = self.chunk.add_constant(ChunkConstant::Number(num));
+        let res = self.chunk.add_constant(&mut self.interner, ChunkConstant::Number(num));
         return self.emit_constant(res, OpCode::Constant);
       }
     }

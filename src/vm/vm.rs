@@ -1,5 +1,5 @@
 use std::{collections::HashMap, convert::TryFrom};
-use string_interner::{Symbol};
+use string_interner::{StringInterner, Symbol};
 
 use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instruction, value::Value};
 
@@ -13,8 +13,9 @@ pub enum VmError {
   RuntimeError,
 }
 
-pub struct Vm<'a> {
-  chunk: &'a mut Chunk,
+#[derive(Default)]
+pub struct Vm {
+  chunk: Chunk,
   globals: HashMap<usize, Value>,
   ip: usize,
   stack: Vec<Value>,
@@ -22,17 +23,13 @@ pub struct Vm<'a> {
 
 static TRACE_VM: bool = false;
 
-impl<'a> Vm<'a> {
-  pub fn new(chunk: &'a mut Chunk) -> Vm<'a> {
-    Vm {
-      chunk,
-      globals: HashMap::new(),
-      ip: 0,
-      stack: Vec::new(),
-    }
-  }
+impl Vm {
+  pub fn run(&mut self, chunk: Chunk, interner: &mut StringInterner) -> Result<(), VmError> {
+    // Keep globals but reset the ip and stack.
+    self.chunk = chunk;
+    self.ip = 0;
+    self.stack.clear();
 
-  pub fn run(&mut self) -> Result<(), VmError> {
     loop {
       let instr = self.read_byte().ok_or(VmError::RuntimeError)?;
 
@@ -88,7 +85,7 @@ impl<'a> Vm<'a> {
         OpCode::Add => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
           let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          let result = a.add(&b, self.chunk.interner())?;
+          let result = a.add(&b, interner)?;
           self.stack.push(result);
         },
          OpCode::Subtract => {
@@ -111,7 +108,7 @@ impl<'a> Vm<'a> {
         },
         OpCode::Not => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          self.stack.push(Value::Bool(b.is_falsey(self.chunk.interner())));
+          self.stack.push(Value::Bool(b.is_falsey(&interner)));
         },
         OpCode::Negate => {
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
@@ -120,7 +117,7 @@ impl<'a> Vm<'a> {
         },
         OpCode::Print => {
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
-          println!("{}", value.to_string(self.chunk.interner()));
+          println!("{}", value.to_string(&interner));
         },
         OpCode::Return => {
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
