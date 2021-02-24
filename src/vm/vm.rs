@@ -49,6 +49,9 @@ impl<'a> Vm<'a> {
         OpCode::Nil => self.stack.push(Value::Nil),
         OpCode::True => self.stack.push(Value::Bool(true)),
         OpCode::False => self.stack.push(Value::Bool(false)),
+        OpCode::Pop => {
+          self.stack.pop().ok_or(VmError::EmptyStack)?;
+        },
         OpCode::Equal => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
           let a = self.stack.pop().ok_or(VmError::EmptyStack)?;

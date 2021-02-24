@@ -63,7 +63,6 @@ pub struct Parser<'a> {
   scanner: Scanner<'a>,
   chunk: &'a mut Chunk,
   errors: Vec<ParserError>,
-  panic_mode: bool,
   current: Token<'a>,
   previous: Token<'a>,
 }
@@ -92,7 +91,6 @@ impl<'a> Parser<'a> {
       scanner: Scanner::new(source),
       chunk,
       errors: Vec::new(),
-      panic_mode: false,
       current: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
       previous: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
     }
@@ -173,22 +171,51 @@ impl<'a> Parser<'a> {
     self.parse_precedence(Precedence::Assignment)
   }
 
+  fn expression_statement(&mut self) -> Result<(), ParserError> {
+    self.expression()?;
+    self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
+    self.emit_opcode(OpCode::Pop);
+    Ok(())
+  }
+
   fn print_statement(&mut self) -> Result<(), ParserError> {
     self.expression()?;
     self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
     self.emit_opcode(OpCode::Print);
     Ok(())
   }
+
+  fn synchronize(&mut self) {
+    use TokenType::*;
+    while *self.current.get_type() != Eof {
+      // Skip until we reach something that looks like a statement boundary.
+      if *self.previous.get_type() == Semicolon {
+        return;
+      }
+
+      match *self.current.get_type() {
+        Class | Fun | Var | For | If | While | Print | Return => { return; },
+        _ => {},
+      }
+
+      self.advance();
+    }
+  }
   
   pub fn declaration(&mut self) -> Result<(), ParserError> {
-    self.statement()
+    if let Err(err) = self.statement() {
+      self.synchronize();
+      Err(err)
+    } else {
+      Ok(())
+    }
   }
 
   fn statement(&mut self) -> Result<(), ParserError> {
     if self.match_token(TokenType::Print) {
       self.print_statement()
     } else {
-      Ok(())
+      self.expression_statement()
     }
   }
 
