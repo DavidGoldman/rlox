@@ -52,6 +52,11 @@ impl<'a> Vm<'a> {
         OpCode::Pop => {
           self.stack.pop().ok_or(VmError::EmptyStack)?;
         },
+        OpCode::DefineGlobal => {
+          let name = self.read_constant().ok_or(VmError::RuntimeError)?;
+          let value = self.stack.last().ok_or(VmError::EmptyStack)?;
+          self.stack.pop().ok_or(VmError::EmptyStack)?;
+        },
         OpCode::Equal => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
           let a = self.stack.pop().ok_or(VmError::EmptyStack)?;

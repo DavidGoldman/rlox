@@ -171,6 +171,20 @@ impl<'a> Parser<'a> {
     self.parse_precedence(Precedence::Assignment)
   }
 
+  fn var_declaration(&mut self) -> Result<(), ParserError> {
+    self.consume(TokenType::Identifier, "Expect variable name.")?;
+    let global_or_err = self.parse_variable();
+
+    if self.match_token(TokenType::Equal) { 
+      self.expression()?;
+    } else {
+      self.emit_opcode(OpCode::Nil);
+    }
+    self.consume(TokenType::Semicolon, "Expect ';' after variable declaration.")?;
+
+    self.emit_constant(global_or_err, OpCode::DefineGlobal)
+  }
+
   fn expression_statement(&mut self) -> Result<(), ParserError> {
     self.expression()?;
     self.consume(TokenType::Semicolon, "Expect ';' after expression.")?;
@@ -203,7 +217,12 @@ impl<'a> Parser<'a> {
   }
   
   pub fn declaration(&mut self) -> Result<(), ParserError> {
-    if let Err(err) = self.statement() {
+    let result = if self.match_token(TokenType::Var) {
+      self.var_declaration()
+    } else {
+      self.statement()
+    };
+    if let Err(err) = result {
       self.synchronize();
       Err(err)
     } else {
@@ -286,11 +305,16 @@ impl<'a> Parser<'a> {
     Ok(())
   }
 
+  fn parse_variable(&mut self) -> Result<u8, Value> {
+    let name = self.previous.get_lexeme();
+    self.chunk.add_constant(ChunkConstant::String(name))
+  }
+
   fn string(&mut self) -> Result<(), ParserError> {
     if *self.previous.get_type() == TokenType::String {
       if let LiteralConstant::String(str) = self.previous.get_literal() {
         let res = self.chunk.add_constant(ChunkConstant::String(str));
-        return self.emit_constant(res)
+        return self.emit_constant(res, OpCode::Constant);
       }
     }
     return Err(ParserError::TypeMismatch(
@@ -301,7 +325,7 @@ impl<'a> Parser<'a> {
     if *self.previous.get_type() == TokenType::Number {
       if let LiteralConstant::Number(num) = self.previous.get_literal() {
         let res = self.chunk.add_constant(ChunkConstant::Number(num));
-        return self.emit_constant(res);
+        return self.emit_constant(res, OpCode::Constant);
       }
     }
     return Err(ParserError::TypeMismatch(
@@ -349,10 +373,10 @@ impl<'a> Parser<'a> {
     self.emit_bytecode(opcode as u8);
   }
 
-  fn emit_constant(&mut self, res: Result<ByteCode, Value>) -> Result<(), ParserError> {
+  fn emit_constant(&mut self, res: Result<ByteCode, Value>, opcode: OpCode) -> Result<(), ParserError> {
     match res {
       Ok(idx) => {
-        self.emit_opcode(OpCode::Constant);
+        self.emit_opcode(opcode);
         self.emit_bytecode(idx);
         Ok(())
       },
