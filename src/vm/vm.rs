@@ -1,4 +1,5 @@
-use std::convert::TryFrom;
+use std::{collections::HashMap, convert::TryFrom};
+use string_interner::{Symbol};
 
 use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instruction, value::Value};
 
@@ -7,12 +8,13 @@ use super::{bytecode::{ByteCode, Chunk, OpCode}, disassembler::disassemble_instr
 pub enum VmError {
   EmptyStack,
   TypeError(String),
-  CompileError,
+  InvalidVariable(Value),
   RuntimeError,
 }
 
 pub struct Vm<'a> {
   chunk: &'a mut Chunk,
+  globals: HashMap<usize, Value>,
   ip: usize,
   stack: Vec<Value>,
 }
@@ -23,6 +25,7 @@ impl<'a> Vm<'a> {
   pub fn new(chunk: &'a mut Chunk) -> Vm<'a> {
     Vm {
       chunk,
+      globals: HashMap::new(),
       ip: 0,
       stack: Vec::new(),
     }
@@ -53,9 +56,10 @@ impl<'a> Vm<'a> {
           self.stack.pop().ok_or(VmError::EmptyStack)?;
         },
         OpCode::DefineGlobal => {
-          let name = self.read_constant().ok_or(VmError::RuntimeError)?;
-          let value = self.stack.last().ok_or(VmError::EmptyStack)?;
-          self.stack.pop().ok_or(VmError::EmptyStack)?;
+          let constant_idx = self.read_byte().ok_or(VmError::RuntimeError)?;
+          let name = self.chunk.get_constant(constant_idx).ok_or(VmError::RuntimeError)?;
+          let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          Vm::store_global(&mut self.globals, name, value)?;
         },
         OpCode::Equal => {
           let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
@@ -117,6 +121,17 @@ impl<'a> Vm<'a> {
           return Result::Ok(());
         },
       }
+    }
+  }
+
+  fn store_global(map: &mut HashMap<usize, Value>, key: &Value,
+      value: Value) -> Result<(), VmError> {
+    match key {
+      Value::InternedString(interned_key) => {
+        map.insert(interned_key.to_usize(), value);
+        Ok(())
+      },
+      _ => Err(VmError::InvalidVariable(key.clone())),
     }
   }
 
