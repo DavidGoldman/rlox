@@ -7,8 +7,10 @@ pub fn compile(text: &str) -> Result<Chunk, ()> {
   {
     let mut parser = Parser::new(text, &mut chunk);
     parser.advance();
-    let result = parser.expression();
-    println!("{:?}, internal errors: {:?}", result, parser.take_errors());
+    while !parser.is_done() {
+      let result = parser.declaration();
+      println!("{:?}, internal errors: {:?}", result, parser.take_errors());
+    }
     parser.end();
     if let Err(err) = parser.consume(TokenType::Eof, "Expected Eof") {
       eprintln!("{:?}", err);

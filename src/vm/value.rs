@@ -26,6 +26,20 @@ impl Value {
     }
   }
 
+  pub fn to_string(&self, interner: &StringInterner) -> String {
+    use Value::*;
+    match self {
+      Nil => "nil".to_string(),
+      Bool(val) => if *val { "true" } else { "false" }.to_string(),
+      Number(val) => val.to_string(),
+      String(val) => return val.to_string(),
+      InternedString(val) => match interner.resolve(*val) {
+        None => "<invalid interned string>",
+        Some(str) => str,
+      }.to_string()
+    }
+  }
+
   pub fn equal(&self, other: &Value) -> bool {
     use Value::*;
     match (self, other) {

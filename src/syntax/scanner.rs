@@ -222,7 +222,7 @@ impl<'a> Scanner<'a> {
     result
   }
 
-  fn at_end(&self) -> bool {
+  pub fn at_end(&self) -> bool {
     self.current >= self.source.len()
   }
 

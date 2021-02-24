@@ -24,6 +24,7 @@ pub enum OpCode {
   Divide,
   Not,
   Negate,
+  Print,
   Return,
 }
 
@@ -49,6 +50,7 @@ impl TryFrom<ByteCode> for OpCode {
       x if x == Divide as ByteCode => Ok(Divide),
       x if x == Not as ByteCode => Ok(Not),
       x if x == Negate as ByteCode => Ok(Negate),
+      x if x == Print as ByteCode => Ok(Print),
       x if x == Return as ByteCode => Ok(Return),
       _ => Err(()),
     }

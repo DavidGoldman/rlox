@@ -99,6 +99,10 @@ impl<'a> Vm<'a> {
           let negated = value.negate()?;
           self.stack.push(negated);
         },
+        OpCode::Print => {
+          let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
+          println!("{}", value.to_string(self.chunk.interner()));
+        },
         OpCode::Return => {
           let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
           println!("{:?}", value);

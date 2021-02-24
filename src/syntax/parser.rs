@@ -98,6 +98,10 @@ impl<'a> Parser<'a> {
     }
   }
 
+  pub fn is_done(&self) -> bool {
+    self.scanner.at_end()
+  }
+
   pub fn end(&mut self) {
     self.emit_opcode(OpCode::Return);
   }
@@ -165,8 +169,27 @@ impl<'a> Parser<'a> {
     Ok(())
   }
 
-  pub fn expression(&mut self) -> Result<(), ParserError> {
+  fn expression(&mut self) -> Result<(), ParserError> {
     self.parse_precedence(Precedence::Assignment)
+  }
+
+  fn print_statement(&mut self) -> Result<(), ParserError> {
+    self.expression()?;
+    self.consume(TokenType::Semicolon, "Expect ';' after value.")?;
+    self.emit_opcode(OpCode::Print);
+    Ok(())
+  }
+  
+  pub fn declaration(&mut self) -> Result<(), ParserError> {
+    self.statement()
+  }
+
+  fn statement(&mut self) -> Result<(), ParserError> {
+    if self.match_token(TokenType::Print) {
+      self.print_statement()
+    } else {
+      Ok(())
+    }
   }
 
   fn get_rule(token: &TokenType) -> ParseRule<'a> {
@@ -276,6 +299,19 @@ impl<'a> Parser<'a> {
     } else {
       Err(ParserError::UnexpectedToken(message.to_string(), self.current.get_line()))
     }
+  }
+
+  fn match_token(&mut self, token: TokenType) -> bool {
+    if !self.check(token) {
+      false
+    } else {
+      self.advance();
+      true
+    }
+  }
+
+  fn check(&self, token: TokenType) -> bool {
+    *self.current.get_type() == token
   }
 
   fn emit_bytecode(&mut self, bytecode: ByteCode) {
