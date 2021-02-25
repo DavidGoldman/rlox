@@ -11,7 +11,7 @@ pub fn compile(text: &str, strings: &mut StringInterner) -> Result<Chunk, ()> {
         parser.advance();
         while !parser.is_done() {
             let result = parser.declaration();
-            println!("{:?}, internal errors: {:?}", result, parser.take_errors());
+            println!("{:?}", result);
         }
         parser.end();
         if let Err(err) = parser.consume(TokenType::Eof, "Expected Eof") {

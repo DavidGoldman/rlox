@@ -1,4 +1,4 @@
-use std::{convert::TryFrom, mem::replace};
+use std::{convert::TryFrom};
 
 use string_interner::StringInterner;
 
@@ -69,7 +69,6 @@ pub struct Parser<'a> {
     scanner: Scanner<'a>,
     chunk: &'a mut Chunk,
     interner: &'a mut StringInterner,
-    errors: Vec<ParserError>,
     current: Token<'a>,
     previous: Token<'a>,
 }
@@ -106,7 +105,6 @@ impl<'a> Parser<'a> {
             scanner: Scanner::new(source),
             chunk,
             interner,
-            errors: Vec::new(),
             current: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
             previous: Token::new(TokenType::Eof, "", LiteralConstant::None, 0),
         }
@@ -118,10 +116,6 @@ impl<'a> Parser<'a> {
 
     pub fn end(&mut self) {
         self.emit_opcode(OpCode::Return);
-    }
-
-    pub fn take_errors(&mut self) -> Vec<ParserError> {
-        replace(&mut self.errors, Vec::new())
     }
 
     fn binary(&mut self, _can_assign: bool) -> Result<(), ParserError> {
