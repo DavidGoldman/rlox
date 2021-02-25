@@ -56,12 +56,14 @@ pub enum LiteralConstant<'a> {
     Number(f64),
 }
 
+pub type Line = usize;
+
 #[derive(Clone, Debug)]
 pub struct Token<'a> {
     token_type: TokenType,
     lexeme: &'a str,
     literal: LiteralConstant<'a>,
-    line: usize,
+    line: Line,
 }
 
 impl<'a> Token<'a> {
@@ -79,19 +81,19 @@ impl<'a> Token<'a> {
         }
     }
 
-    pub fn get_type(&self) -> &TokenType {
+    pub fn token_type(&self) -> &TokenType {
         &self.token_type
     }
 
-    pub fn get_lexeme(&self) -> &str {
+    pub fn lexeme(&self) -> &str {
         self.lexeme
     }
 
-    pub fn get_literal(&self) -> LiteralConstant<'a> {
+    pub fn literal(&self) -> LiteralConstant<'a> {
         self.literal
     }
 
-    pub fn get_line(&self) -> usize {
+    pub fn line(&self) -> Line {
         self.line
     }
 }

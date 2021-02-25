@@ -7,12 +7,7 @@ use crate::vm::{
     value::Value,
 };
 
-use super::{
-    scanner::Scanner,
-    token::{LiteralConstant, Token, TokenType},
-};
-
-pub type Line = usize;
+use super::{scanner::Scanner, token::{Line, LiteralConstant, Token, TokenType}};
 
 #[derive(Debug)]
 pub enum ParserError {
@@ -131,7 +126,7 @@ impl<'a> Parser<'a> {
 
     fn binary(&mut self, _can_assign: bool) -> Result<(), ParserError> {
         let previous = &self.previous;
-        let op_type = previous.get_type();
+        let op_type = previous.token_type();
 
         // Remember the operator, including if we need a not.
         let mut add_not = false;
@@ -156,8 +151,8 @@ impl<'a> Parser<'a> {
             TokenType::Star => OpCode::Multiply,
             TokenType::Slash => OpCode::Divide,
             _ => {
-                let error = format!("Invalid binary operator {}", previous.get_lexeme());
-                let line = previous.get_line();
+                let error = format!("Invalid binary operator {}", previous.lexeme());
+                let line = previous.line();
                 return Err(ParserError::UnexpectedToken(error, line));
             }
         };
@@ -175,13 +170,13 @@ impl<'a> Parser<'a> {
 
     fn literal(&mut self, _can_assign: bool) -> Result<(), ParserError> {
         let prev = &self.previous;
-        match prev.get_type() {
+        match prev.token_type() {
             TokenType::False => self.emit_opcode(OpCode::False),
             TokenType::Nil => self.emit_opcode(OpCode::Nil),
             TokenType::True => self.emit_opcode(OpCode::True),
             _ => {
-                let message = format!("Invalid literal {}", prev.get_lexeme());
-                return Err(ParserError::InternalError(message, prev.get_line()));
+                let message = format!("Invalid literal {}", prev.lexeme());
+                return Err(ParserError::InternalError(message, prev.line()));
             }
         }
         Ok(())
@@ -224,13 +219,13 @@ impl<'a> Parser<'a> {
 
     fn synchronize(&mut self) {
         use TokenType::*;
-        while *self.current.get_type() != Eof {
+        while *self.current.token_type() != Eof {
             // Skip until we reach something that looks like a statement boundary.
-            if *self.previous.get_type() == Semicolon {
+            if *self.previous.token_type() == Semicolon {
                 return;
             }
 
-            match *self.current.get_type() {
+            match *self.current.token_type() {
                 Class | Fun | Var | For | If | While | Print | Return => {
                     return;
                 }
@@ -295,28 +290,28 @@ impl<'a> Parser<'a> {
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParserError> {
         self.advance();
-        if let Some(prefix_fn) = Parser::get_rule(self.previous.get_type()).prefix {
+        if let Some(prefix_fn) = Parser::get_rule(self.previous.token_type()).prefix {
             let can_assign = precedence <= Precedence::Assignment;
             prefix_fn(self, can_assign)?;
-            while precedence <= Parser::get_rule(self.current.get_type()).precedence {
+            while precedence <= Parser::get_rule(self.current.token_type()).precedence {
                 self.advance();
 
-                if let Some(infix_fn) = Parser::get_rule(self.previous.get_type()).infix {
+                if let Some(infix_fn) = Parser::get_rule(self.previous.token_type()).infix {
                     infix_fn(self, can_assign)?;
                 } else {
                     let prev = &self.previous;
-                    let message = format!("No infix parser rule for {}", prev.get_lexeme());
-                    return Err(ParserError::InternalError(message, prev.get_line()));
+                    let message = format!("No infix parser rule for {}", prev.lexeme());
+                    return Err(ParserError::InternalError(message, prev.line()));
                 }
             }
             if can_assign && self.match_token(TokenType::Equal) {
-                Err(ParserError::InvalidAssignment(self.current.get_line()))
+                Err(ParserError::InvalidAssignment(self.current.line()))
             } else {
                 Ok(())
             }
         } else {
-            let got = self.previous.get_lexeme().to_string();
-            let line = self.previous.get_line();
+            let got = self.previous.lexeme().to_string();
+            let line = self.previous.line();
             Err(ParserError::ExpectExpression(got, line))
         }
     }
@@ -329,7 +324,7 @@ impl<'a> Parser<'a> {
 
     fn unary(&mut self, _can_assign: bool) -> Result<(), ParserError> {
         let prev = &self.previous;
-        match prev.get_type() {
+        match prev.token_type() {
             // FIXME: We need to pass the line number here.
             TokenType::Bang => {
                 self.parse_precedence(Precedence::Unary)?; // Compile the operand.
@@ -340,22 +335,22 @@ impl<'a> Parser<'a> {
                 self.emit_opcode(OpCode::Negate);
             }
             _ => {
-                let message = format!("Invalid unary op {}", prev.get_lexeme());
-                return Err(ParserError::InternalError(message, prev.get_line()));
+                let message = format!("Invalid unary op {}", prev.lexeme());
+                return Err(ParserError::InternalError(message, prev.line()));
             }
         };
         Ok(())
     }
 
     fn parse_variable(&mut self) -> Result<u8, Value> {
-        let name = self.previous.get_lexeme();
+        let name = self.previous.lexeme();
         self.chunk
             .add_constant(&mut self.interner, ChunkConstant::String(name))
     }
 
     fn string(&mut self, _can_assign: bool) -> Result<(), ParserError> {
-        if *self.previous.get_type() == TokenType::String {
-            if let LiteralConstant::String(str) = self.previous.get_literal() {
+        if *self.previous.token_type() == TokenType::String {
+            if let LiteralConstant::String(str) = self.previous.literal() {
                 let res = self
                     .chunk
                     .add_constant(&mut self.interner, ChunkConstant::String(str));
@@ -364,12 +359,12 @@ impl<'a> Parser<'a> {
         }
         return Err(ParserError::TypeMismatch(
             TokenType::String,
-            *self.previous.get_type(),
+            *self.previous.token_type(),
         ));
     }
 
     fn named_variable(&mut self, can_assign: bool) -> Result<(), ParserError> {
-        let name = self.previous.get_lexeme();
+        let name = self.previous.lexeme();
         let res = self
             .chunk
             .add_constant(&mut self.interner, ChunkConstant::String(name));
@@ -391,8 +386,8 @@ impl<'a> Parser<'a> {
     }
 
     fn number(&mut self, _can_assign: bool) -> Result<(), ParserError> {
-        if *self.previous.get_type() == TokenType::Number {
-            if let LiteralConstant::Number(num) = self.previous.get_literal() {
+        if *self.previous.token_type() == TokenType::Number {
+            if let LiteralConstant::Number(num) = self.previous.literal() {
                 let res = self
                     .chunk
                     .add_constant(&mut self.interner, ChunkConstant::Number(num));
@@ -401,7 +396,7 @@ impl<'a> Parser<'a> {
         }
         return Err(ParserError::TypeMismatch(
             TokenType::Number,
-            *self.previous.get_type(),
+            *self.previous.token_type(),
         ));
     }
 
@@ -417,13 +412,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn consume(&mut self, token: TokenType, message: &str) -> Result<(), ParserError> {
-        if *self.current.get_type() == token {
+        if *self.current.token_type() == token {
             self.advance();
             Ok(())
         } else {
             Err(ParserError::UnexpectedToken(
                 message.to_string(),
-                self.current.get_line(),
+                self.current.line(),
             ))
         }
     }
@@ -438,11 +433,11 @@ impl<'a> Parser<'a> {
     }
 
     fn check(&self, token: TokenType) -> bool {
-        *self.current.get_type() == token
+        *self.current.token_type() == token
     }
 
     fn emit_bytecode(&mut self, bytecode: ByteCode) {
-        self.chunk.write(bytecode, self.previous.get_line());
+        self.chunk.write(bytecode, self.previous.line());
     }
 
     fn emit_opcode(&mut self, opcode: OpCode) {
@@ -465,6 +460,6 @@ impl<'a> Parser<'a> {
     }
 
     fn err_constants(&self, value: Value) -> ParserError {
-        ParserError::TooManyConstants(value, self.previous.get_line())
+        ParserError::TooManyConstants(value, self.previous.line())
     }
 }
