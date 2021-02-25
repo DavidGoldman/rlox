@@ -40,6 +40,10 @@ pub fn disassemble_instruction(
                 output.push_str(constant_instruction("DefineGlobal", chunk, offset).as_str());
                 return offset + 2;
             }
+            OpCode::SetGlobal => {
+                output.push_str(constant_instruction("SetGlobal", chunk, offset).as_str());
+                return offset + 2;
+            }
             val => {
                 output.push_str(format!("{:?}\n", val).as_str());
                 return offset + 1;

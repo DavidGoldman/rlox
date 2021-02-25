@@ -75,6 +75,15 @@ impl Vm {
                     let value = self.stack.pop().ok_or(VmError::EmptyStack)?;
                     Vm::store(&mut self.globals, name, value)?;
                 }
+                OpCode::SetGlobal => {
+                    let constant_idx = self.read_byte().ok_or(VmError::RuntimeError)?;
+                    let name = self
+                        .chunk
+                        .get_constant(constant_idx)
+                        .ok_or(VmError::RuntimeError)?;
+                    let value = self.stack.last().ok_or(VmError::EmptyStack)?;
+                    Vm::modify(&mut self.globals, name, value.clone())?;
+                }
                 OpCode::Equal => {
                     let b = self.stack.pop().ok_or(VmError::EmptyStack)?;
                     let a = self.stack.pop().ok_or(VmError::EmptyStack)?;
@@ -157,6 +166,21 @@ impl Vm {
             Value::InternedString(interned_key) => {
                 map.insert(interned_key.to_usize(), value);
                 Ok(())
+            }
+            _ => Err(VmError::InvalidVariable(key.clone())),
+        }
+    }
+
+    fn modify(map: &mut HashMap<usize, Value>, key: &Value, value: Value) -> Result<(), VmError> {
+        match key {
+            Value::InternedString(interned_key) => {
+                let map_key = interned_key.to_usize();
+                if map.contains_key(&map_key) {
+                    map.insert(map_key, value);
+                    Ok(())
+                } else {
+                    Err(VmError::UndefinedVariable)
+                }
             }
             _ => Err(VmError::InvalidVariable(key.clone())),
         }
