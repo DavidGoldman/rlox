@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum TokenType {
     Eof,
@@ -66,6 +68,22 @@ pub struct Token<'a> {
     line: Line,
 }
 
+// For error messages.
+pub struct TokenErrContext {
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub line: Line,
+}
+
+impl Display for TokenErrContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.token_type {
+            TokenType::Eof => write!(f, "[line {}] Error at end", self.line),
+            _ => write!(f, "[line {}] Error at '{}'", self.line, &self.lexeme),
+        }
+    }
+}
+
 impl<'a> Token<'a> {
     pub fn new(
         token_type: TokenType,
@@ -78,6 +96,14 @@ impl<'a> Token<'a> {
             lexeme,
             literal,
             line,
+        }
+    }
+
+    pub fn to_err_context(&self) -> TokenErrContext {
+        TokenErrContext {
+            token_type: self.token_type,
+            lexeme: self.lexeme.to_string(),
+            line: self.line,
         }
     }
 

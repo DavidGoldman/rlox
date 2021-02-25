@@ -94,14 +94,14 @@ impl Chunk {
         &mut self,
         interner: &mut StringInterner,
         constant: ChunkConstant,
-    ) -> Result<ByteCode, Value> {
+    ) -> Option<ByteCode> {
         let constant_idx = self.constants.len();
         if let Ok(bytecode_idx) = ByteCode::try_from(constant_idx) {
             let value = self.value_for_constant(interner, constant);
             self.constants.push(value);
-            Ok(bytecode_idx)
+            Some(bytecode_idx)
         } else {
-            Err(self.value_for_constant(interner, constant))
+            None
         }
     }
 

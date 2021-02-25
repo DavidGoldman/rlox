@@ -11,11 +11,13 @@ pub fn compile(text: &str, strings: &mut StringInterner) -> Result<Chunk, ()> {
         parser.advance();
         while !parser.is_done() {
             let result = parser.declaration();
-            println!("{:?}", result);
+            if let Err(err) = result {
+                eprintln!("{}", err);
+            }
         }
         parser.end();
         if let Err(err) = parser.consume(TokenType::Eof, "Expected Eof") {
-            eprintln!("{:?}", err);
+            eprintln!("{}", err);
         }
     }
     println!("{}", disassemble_chunk(&chunk, "code"));

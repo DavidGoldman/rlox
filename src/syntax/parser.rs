@@ -1,22 +1,32 @@
-use std::{convert::TryFrom};
+use std::{convert::TryFrom, fmt::Display};
 
 use string_interner::StringInterner;
 
-use crate::vm::{
-    bytecode::{ByteCode, Chunk, ChunkConstant, OpCode},
-    value::Value,
+use crate::vm::bytecode::{ByteCode, Chunk, ChunkConstant, OpCode};
+
+use super::{
+    scanner::Scanner,
+    token::{LiteralConstant, Token, TokenErrContext, TokenType},
 };
 
-use super::{scanner::Scanner, token::{Line, LiteralConstant, Token, TokenType}};
-
-#[derive(Debug)]
 pub enum ParserError {
-    ExpectExpression(String, Line),
-    TooManyConstants(Value, Line),
-    TypeMismatch(TokenType, TokenType), // expected, got
-    UnexpectedToken(String, Line),
-    InternalError(String, Line),
-    InvalidAssignment(Line),
+    ExpectExpression(TokenErrContext),
+    InternalError(TokenErrContext, String),
+    InvalidAssignment(TokenErrContext),
+    TooManyConstants(TokenErrContext),
+    UnexpectedToken(TokenErrContext, String),
+}
+
+impl Display for ParserError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParserError::ExpectExpression(ctx) => write!(f, "{}: Expect expression", ctx),
+            ParserError::InternalError(ctx, msg) => write!(f, "{}: {}", ctx, msg),
+            ParserError::InvalidAssignment(ctx) => write!(f, "{}: Invalid assignment", ctx),
+            ParserError::TooManyConstants(ctx) => write!(f, "{}: Too many constants", ctx),
+            ParserError::UnexpectedToken(ctx, msg) => write!(f, "{}: {}", ctx, msg),
+        }
+    }
 }
 
 #[derive(PartialEq, PartialOrd, Eq, Ord, Copy, Clone)]
@@ -146,8 +156,8 @@ impl<'a> Parser<'a> {
             TokenType::Slash => OpCode::Divide,
             _ => {
                 let error = format!("Invalid binary operator {}", previous.lexeme());
-                let line = previous.line();
-                return Err(ParserError::UnexpectedToken(error, line));
+                let err_ctx = previous.to_err_context();
+                return Err(ParserError::UnexpectedToken(err_ctx, error));
             }
         };
 
@@ -169,8 +179,9 @@ impl<'a> Parser<'a> {
             TokenType::Nil => self.emit_opcode(OpCode::Nil),
             TokenType::True => self.emit_opcode(OpCode::True),
             _ => {
-                let message = format!("Invalid literal {}", prev.lexeme());
-                return Err(ParserError::InternalError(message, prev.line()));
+                let err_ctx = prev.to_err_context();
+                let msg = "Invalid literal".to_string();
+                return Err(ParserError::InternalError(err_ctx, msg));
             }
         }
         Ok(())
@@ -182,7 +193,7 @@ impl<'a> Parser<'a> {
 
     fn var_declaration(&mut self) -> Result<(), ParserError> {
         self.consume(TokenType::Identifier, "Expect variable name.")?;
-        let global_or_err = self.parse_variable();
+        let maybe_global = self.parse_variable();
 
         if self.match_token(TokenType::Equal) {
             self.expression()?;
@@ -194,7 +205,7 @@ impl<'a> Parser<'a> {
             "Expect ';' after variable declaration.",
         )?;
 
-        self.emit_constant(global_or_err, OpCode::DefineGlobal)
+        self.emit_constant(maybe_global, OpCode::DefineGlobal)
     }
 
     fn expression_statement(&mut self) -> Result<(), ParserError> {
@@ -293,20 +304,20 @@ impl<'a> Parser<'a> {
                 if let Some(infix_fn) = Parser::get_rule(self.previous.token_type()).infix {
                     infix_fn(self, can_assign)?;
                 } else {
-                    let prev = &self.previous;
-                    let message = format!("No infix parser rule for {}", prev.lexeme());
-                    return Err(ParserError::InternalError(message, prev.line()));
+                    let err_ctx = self.previous.to_err_context();
+                    let msg = "No infix parser rule".to_string();
+                    return Err(ParserError::InternalError(err_ctx, msg));
                 }
             }
             if can_assign && self.match_token(TokenType::Equal) {
-                Err(ParserError::InvalidAssignment(self.current.line()))
+                let err_ctx = self.current.to_err_context();
+                Err(ParserError::InvalidAssignment(err_ctx))
             } else {
                 Ok(())
             }
         } else {
-            let got = self.previous.lexeme().to_string();
-            let line = self.previous.line();
-            Err(ParserError::ExpectExpression(got, line))
+            let err_ctx = self.previous.to_err_context();
+            Err(ParserError::ExpectExpression(err_ctx))
         }
     }
 
@@ -329,14 +340,15 @@ impl<'a> Parser<'a> {
                 self.emit_opcode(OpCode::Negate);
             }
             _ => {
-                let message = format!("Invalid unary op {}", prev.lexeme());
-                return Err(ParserError::InternalError(message, prev.line()));
+                let err_ctx = self.previous.to_err_context();
+                let msg = "Invalid unary operator".to_string();
+                return Err(ParserError::InternalError(err_ctx, msg));
             }
         };
         Ok(())
     }
 
-    fn parse_variable(&mut self) -> Result<u8, Value> {
+    fn parse_variable(&mut self) -> Option<ByteCode> {
         let name = self.previous.lexeme();
         self.chunk
             .add_constant(&mut self.interner, ChunkConstant::String(name))
@@ -345,33 +357,33 @@ impl<'a> Parser<'a> {
     fn string(&mut self, _can_assign: bool) -> Result<(), ParserError> {
         if *self.previous.token_type() == TokenType::String {
             if let LiteralConstant::String(str) = self.previous.literal() {
-                let res = self
+                let maybe_global = self
                     .chunk
                     .add_constant(&mut self.interner, ChunkConstant::String(str));
-                return self.emit_constant(res, OpCode::Constant);
+                return self.emit_constant(maybe_global, OpCode::Constant);
             }
         }
-        return Err(ParserError::TypeMismatch(
-            TokenType::String,
-            *self.previous.token_type(),
+        return Err(ParserError::InternalError(
+            self.previous.to_err_context(),
+            "invalid string literal".to_string(),
         ));
     }
 
     fn named_variable(&mut self, can_assign: bool) -> Result<(), ParserError> {
         let name = self.previous.lexeme();
-        let res = self
+        let maybe_global = self
             .chunk
             .add_constant(&mut self.interner, ChunkConstant::String(name));
 
-        if let Err(value) = res {
-            return Err(self.err_constants(value));
+        if maybe_global == None {
+            return Err(self.err_constants());
         }
 
         if can_assign && self.match_token(TokenType::Equal) {
             self.expression()?;
-            self.emit_constant(res, OpCode::SetGlobal)
+            self.emit_constant(maybe_global, OpCode::SetGlobal)
         } else {
-            self.emit_constant(res, OpCode::GetGlobal)
+            self.emit_constant(maybe_global, OpCode::GetGlobal)
         }
     }
 
@@ -388,9 +400,9 @@ impl<'a> Parser<'a> {
                 return self.emit_constant(res, OpCode::Constant);
             }
         }
-        return Err(ParserError::TypeMismatch(
-            TokenType::Number,
-            *self.previous.token_type(),
+        return Err(ParserError::InternalError(
+            self.previous.to_err_context(),
+            "invalid number literal".to_string(),
         ));
     }
 
@@ -411,8 +423,8 @@ impl<'a> Parser<'a> {
             Ok(())
         } else {
             Err(ParserError::UnexpectedToken(
+                self.current.to_err_context(),
                 message.to_string(),
-                self.current.line(),
             ))
         }
     }
@@ -440,20 +452,20 @@ impl<'a> Parser<'a> {
 
     fn emit_constant(
         &mut self,
-        res: Result<ByteCode, Value>,
+        maybe_global: Option<ByteCode>,
         opcode: OpCode,
     ) -> Result<(), ParserError> {
-        match res {
-            Ok(idx) => {
+        match maybe_global {
+            Some(idx) => {
                 self.emit_opcode(opcode);
                 self.emit_bytecode(idx);
                 Ok(())
             }
-            Err(value) => Err(self.err_constants(value)),
+            None => Err(self.err_constants()),
         }
     }
 
-    fn err_constants(&self, value: Value) -> ParserError {
-        ParserError::TooManyConstants(value, self.previous.line())
+    fn err_constants(&self) -> ParserError {
+        ParserError::TooManyConstants(self.previous.to_err_context())
     }
 }
