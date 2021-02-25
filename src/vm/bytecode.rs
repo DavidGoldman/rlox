@@ -88,6 +88,8 @@ impl Chunk {
         self.code.len()
     }
 
+    // FIXME: Chapter 21 challenge 1: avoid creating a new constant if we've
+    // added the same constant previously.
     pub(crate) fn add_constant(
         &mut self,
         interner: &mut StringInterner,
