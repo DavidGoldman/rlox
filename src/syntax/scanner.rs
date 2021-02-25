@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use super::token::{LiteralConstant, Token, TokenType};
 
 pub struct Scanner<'a> {
@@ -7,23 +9,39 @@ pub struct Scanner<'a> {
     line: usize,
 }
 
-#[derive(Debug)]
-pub struct SourceContext {
+pub struct SourceErrContext {
     pub lexeme: String,
     pub line: usize,
 }
 
-impl SourceContext {
-    fn new(lexeme: String, line: usize) -> Self {
-        SourceContext { lexeme, line }
+impl Display for SourceErrContext {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "[line {}] Error at '{}'", self.line, self.lexeme)
     }
 }
 
-#[derive(Debug)]
+impl SourceErrContext {
+    fn new(lexeme: String, line: usize) -> Self {
+        SourceErrContext { lexeme, line }
+    }
+}
+
 pub enum ScannerError {
-    UnexpectedEof(SourceContext),
-    UnsupportedChar(SourceContext, u8),
-    InvalidNumber(SourceContext),
+    UnexpectedEof(usize),
+    UnsupportedChar(SourceErrContext, u8),
+    InvalidNumber(SourceErrContext),
+}
+
+impl Display for ScannerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ScannerError::UnexpectedEof(line) => write!(f, "[line {}] Error at end", line),
+            ScannerError::UnsupportedChar(ctx, char) => {
+                write!(f, "{}: invalid char '{}'", ctx, *char as char)
+            }
+            ScannerError::InvalidNumber(ctx) => write!(f, "{}: invalid number", ctx),
+        }
+    }
 }
 
 fn is_digit(byte: u8) -> bool {
@@ -70,7 +88,7 @@ impl<'a> Scanner<'a> {
                 b'0'..=b'9' => self.make_number(),
                 b'a'..=b'z' | b'A'..=b'Z' => self.make_identifier(),
                 _ => {
-                    let ctx = self.current_source_context();
+                    let ctx = self.err_context();
                     Err(ScannerError::UnsupportedChar(ctx, byte))
                 }
             };
@@ -97,8 +115,8 @@ impl<'a> Scanner<'a> {
         &self.source[self.start..self.current]
     }
 
-    fn current_source_context(&self) -> SourceContext {
-        SourceContext::new(self.current_lexeme().to_string(), self.line)
+    fn err_context(&self) -> SourceErrContext {
+        SourceErrContext::new(self.current_lexeme().to_string(), self.line)
     }
 
     fn make_token(&mut self, token_type: TokenType) -> Token<'a> {
@@ -130,7 +148,7 @@ impl<'a> Scanner<'a> {
         }
 
         if self.at_end() {
-            Err(ScannerError::UnexpectedEof(self.current_source_context()))
+            Err(ScannerError::UnexpectedEof(self.line))
         } else {
             self.advance(); // The closing quote.
             let parsed_str = &self.source[self.start + 1..self.current - 1];
@@ -157,7 +175,7 @@ impl<'a> Scanner<'a> {
         if let Ok(num) = number_str.parse::<f64>() {
             Ok(self.make_literal(TokenType::Number, LiteralConstant::Number(num)))
         } else {
-            Err(ScannerError::InvalidNumber(self.current_source_context()))
+            Err(ScannerError::InvalidNumber(self.err_context()))
         }
     }
 

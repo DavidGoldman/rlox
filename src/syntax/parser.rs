@@ -4,15 +4,13 @@ use string_interner::StringInterner;
 
 use crate::vm::bytecode::{ByteCode, Chunk, ChunkConstant, OpCode};
 
-use super::{
-    scanner::Scanner,
-    token::{LiteralConstant, Token, TokenErrContext, TokenType},
-};
+use super::{scanner::{Scanner, ScannerError}, token::{LiteralConstant, Token, TokenErrContext, TokenType}};
 
 pub enum ParserError {
     ExpectExpression(TokenErrContext),
     InternalError(TokenErrContext, String),
     InvalidAssignment(TokenErrContext),
+    ScannerError(ScannerError),
     TooManyConstants(TokenErrContext),
     UnexpectedToken(TokenErrContext, String),
 }
@@ -23,6 +21,7 @@ impl Display for ParserError {
             ParserError::ExpectExpression(ctx) => write!(f, "{}: Expect expression", ctx),
             ParserError::InternalError(ctx, msg) => write!(f, "{}: {}", ctx, msg),
             ParserError::InvalidAssignment(ctx) => write!(f, "{}: Invalid assignment", ctx),
+            ParserError::ScannerError(err) => write!(f, "{}", err),
             ParserError::TooManyConstants(ctx) => write!(f, "{}: Too many constants", ctx),
             ParserError::UnexpectedToken(ctx, msg) => write!(f, "{}: {}", ctx, msg),
         }
@@ -120,6 +119,7 @@ impl<'a> Parser<'a> {
         }
     }
 
+    /// Returns true if we're done or haven't yet started via `advance()`.
     pub fn is_done(&self) -> bool {
         self.scanner.at_end()
     }
@@ -195,7 +195,7 @@ impl<'a> Parser<'a> {
         self.consume(TokenType::Identifier, "Expect variable name.")?;
         let maybe_global = self.parse_variable();
 
-        if self.match_token(TokenType::Equal) {
+        if self.match_token(TokenType::Equal)? {
             self.expression()?;
         } else {
             self.emit_opcode(OpCode::Nil);
@@ -237,12 +237,14 @@ impl<'a> Parser<'a> {
                 _ => {}
             }
 
-            self.advance();
+            // Intentionally eat errors here as we're trying to recover from
+            // one.
+            let _ = self.advance();
         }
     }
 
     pub fn declaration(&mut self) -> Result<(), ParserError> {
-        let result = if self.match_token(TokenType::Var) {
+        let result = if self.match_token(TokenType::Var)? {
             self.var_declaration()
         } else {
             self.statement()
@@ -256,7 +258,7 @@ impl<'a> Parser<'a> {
     }
 
     fn statement(&mut self) -> Result<(), ParserError> {
-        if self.match_token(TokenType::Print) {
+        if self.match_token(TokenType::Print)? {
             self.print_statement()
         } else {
             self.expression_statement()
@@ -294,12 +296,12 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_precedence(&mut self, precedence: Precedence) -> Result<(), ParserError> {
-        self.advance();
+        self.advance()?;
         if let Some(prefix_fn) = Parser::get_rule(self.previous.token_type()).prefix {
             let can_assign = precedence <= Precedence::Assignment;
             prefix_fn(self, can_assign)?;
             while precedence <= Parser::get_rule(self.current.token_type()).precedence {
-                self.advance();
+                self.advance()?;
 
                 if let Some(infix_fn) = Parser::get_rule(self.previous.token_type()).infix {
                     infix_fn(self, can_assign)?;
@@ -309,7 +311,7 @@ impl<'a> Parser<'a> {
                     return Err(ParserError::InternalError(err_ctx, msg));
                 }
             }
-            if can_assign && self.match_token(TokenType::Equal) {
+            if can_assign && self.match_token(TokenType::Equal)? {
                 let err_ctx = self.current.to_err_context();
                 Err(ParserError::InvalidAssignment(err_ctx))
             } else {
@@ -379,7 +381,7 @@ impl<'a> Parser<'a> {
             return Err(self.err_constants());
         }
 
-        if can_assign && self.match_token(TokenType::Equal) {
+        if can_assign && self.match_token(TokenType::Equal)? {
             self.expression()?;
             self.emit_constant(maybe_global, OpCode::SetGlobal)
         } else {
@@ -406,20 +408,23 @@ impl<'a> Parser<'a> {
         ));
     }
 
-    pub fn advance(&mut self) {
+    pub fn advance(&mut self) -> Result<(), ParserError> {
         let result = self.scanner.scan_token();
-        if let Ok(new_token) = result {
-            let old_value = std::mem::replace(&mut self.current, new_token);
-            self.previous = old_value;
-        } else {
-            // FIXME: Handle scanner errors
-            println!("scanner error {:?}", result);
+        match result {
+            Ok(new_token) => {
+                let old_value = std::mem::replace(&mut self.current, new_token);
+                self.previous = old_value;
+                Ok(())
+            },
+            Err(err) => {
+                Err(ParserError::ScannerError(err))
+            }
         }
     }
 
     pub fn consume(&mut self, token: TokenType, message: &str) -> Result<(), ParserError> {
         if *self.current.token_type() == token {
-            self.advance();
+            self.advance()?;
             Ok(())
         } else {
             Err(ParserError::UnexpectedToken(
@@ -429,12 +434,12 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn match_token(&mut self, token: TokenType) -> bool {
+    fn match_token(&mut self, token: TokenType) -> Result<bool, ParserError> {
         if !self.check(token) {
-            false
+            Ok(false)
         } else {
-            self.advance();
-            true
+            self.advance()?;
+            Ok(true)
         }
     }
 

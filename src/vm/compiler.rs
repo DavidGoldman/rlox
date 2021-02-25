@@ -8,7 +8,9 @@ pub fn compile(text: &str, strings: &mut StringInterner) -> Result<Chunk, ()> {
     let mut chunk = Chunk::default();
     {
         let mut parser = Parser::new(text, &mut chunk, strings);
-        parser.advance();
+        if let Err(err) = parser.advance() {
+            eprintln!("{}", err);
+        }
         while !parser.is_done() {
             let result = parser.declaration();
             if let Err(err) = result {
