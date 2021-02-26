@@ -294,3 +294,27 @@ impl<'a> Scanner<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn check_type(scanner: &mut Scanner, expected: TokenType) {
+        let res = scanner.scan_token();
+        match res {
+            Ok(token) => assert_eq!(*token.token_type(), expected),
+            Err(err) => panic!("Unexpected error: {}", err),
+        }
+    }
+
+    #[test]
+    fn scans_token_types() {
+        let mut scanner = Scanner::new("var a = \"hi\";");
+        check_type(&mut scanner, TokenType::Var);
+        check_type(&mut scanner, TokenType::Identifier);
+        check_type(&mut scanner, TokenType::Equal);
+        check_type(&mut scanner, TokenType::String);
+        check_type(&mut scanner, TokenType::Semicolon);
+        check_type(&mut scanner, TokenType::Eof);
+    }
+}
