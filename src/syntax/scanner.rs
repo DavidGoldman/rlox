@@ -309,12 +309,23 @@ mod tests {
 
     #[test]
     fn scans_token_types() {
-        let mut scanner = Scanner::new("var a = \"hi\";");
+        let mut scanner = Scanner::new("var a = \"hi\" or 5; if (a) { print a; }");
         check_type(&mut scanner, TokenType::Var);
         check_type(&mut scanner, TokenType::Identifier);
         check_type(&mut scanner, TokenType::Equal);
         check_type(&mut scanner, TokenType::String);
+        check_type(&mut scanner, TokenType::Or);
+        check_type(&mut scanner, TokenType::Number);
         check_type(&mut scanner, TokenType::Semicolon);
+        check_type(&mut scanner, TokenType::If);
+        check_type(&mut scanner, TokenType::LeftParen);
+        check_type(&mut scanner, TokenType::Identifier);
+        check_type(&mut scanner, TokenType::RightParen);
+        check_type(&mut scanner, TokenType::LeftBrace);
+        check_type(&mut scanner, TokenType::Print);
+        check_type(&mut scanner, TokenType::Identifier);
+        check_type(&mut scanner, TokenType::Semicolon);
+        check_type(&mut scanner, TokenType::RightBrace);
         check_type(&mut scanner, TokenType::Eof);
     }
 }
